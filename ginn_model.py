@@ -64,6 +64,7 @@ class GINN_inputLayer(layers.Layer):
 		self.Z = []
 		self.u2 = []
 		self.vCS = []
+		#DEBUG now.
 		for j in range(x.shape[0]): #x.shape[0]represents batch size, be consistent!
 			xs = x[j][0][:]
 			print('xs is ',xs)
