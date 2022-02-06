@@ -238,8 +238,6 @@ class GINN_inputLayer(layers.Layer):
 		self.model = Model_wrapper(model)
 		self.data = self.model.model.data
 	
-	# def extract y from a forward pass.
-	# @tf.function
 	def set_y(self, y):
 		# print('y is', y)
 		# print('tf.executing_eagerly in the function T or F',tf.executing_eagerly())
