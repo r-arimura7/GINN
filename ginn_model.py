@@ -306,7 +306,7 @@ class InputData(object):
 	
 	def read_pickles(self):
 		#importing wegiht 
-		with open('W.pkl', 'rb') as fin:
+		with open('data/W.pkl', 'rb') as fin:
 			self.W = pickle.load(fin)
 		#print('K=len(self.W)=',len(self.W)) # =20 = number of concepts
 		#for k in range(len(self.W)):
@@ -315,7 +315,7 @@ class InputData(object):
 		#print('W[7]=',self.W[7]) # [[ 0.69168144 -0.01242033]]
 		
 		#importing training_data(i.e. vbow) 
-		with open('training_data.pkl', 'rb') as fin:
+		with open('data/training_data.pkl', 'rb') as fin:
 			self.training_data = pickle.load(fin)
 		#print('len(training_data)=', len(self.training_data)) # =56
 		t0 = self.training_data[0]
@@ -323,7 +323,7 @@ class InputData(object):
 		#print('training_data[0]=', t0)
 		
 		#importing label (positive = 1, negative = 0) 
-		with open('labels.pkl', 'rb') as fin:
+		with open('data/labels.pkl', 'rb') as fin:
 			self.labels = pickle.load(fin)
 		#print('len(labels)=',len(self.labels)) # =56
 		#print('labels=',self.labels)
