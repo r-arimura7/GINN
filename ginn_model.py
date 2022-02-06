@@ -106,7 +106,7 @@ class GINN_inputLayer(layers.Layer):
 					# print('type of upstream[k] is ',tJJe(upstream[k]))
 					# print('variables[k] is ',variables[k])
 					# print('type of variables[k] is ',type(variables[k]))
-					dy_dw =  upstream[k]*variables[k] + self.algo1(k) #change variables[k]　to self.w[k]
+					dy_dw =  upstream[k]*self.algo1(k) #change variables[k]　to self.w[k]
 					# print('dy_dw is ',dy_dw)
 					# print('type of dy_dw is ',type(dy_dw))
 					grad_vars.append(dy_dw)
