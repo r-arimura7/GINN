@@ -15,16 +15,9 @@ import pickle
 import random
 # tf.compat.v1.disable_eager_execution()
 
-
 class Model_wrapper(object):
 	def __init__(self, model):
 		self.model = model
-
-
-@tf.custom_gradient
-def test_GINN_op(x): # x must be frequencies
-	print(' you are in GINN_op')
-
 
 class GINN_inputLayer(layers.Layer):
 	def __init__(self, Weights, units, il_batch_input_shape):
