@@ -65,7 +65,7 @@ class GINN_inputLayer(layers.Layer):
 		self.u2 = []
 		self.vCS = []
 		#DEBUG now.
-		for j in range(x.shape[0]): #x.shape[0]represents batch size, be consistent!
+		for j in range(self.batch_size): #x.shape[0]represents batch size, be consistent!
 			xs = x[j][0][:]
 			print('xs is ',xs)
 			ws = []
@@ -90,28 +90,28 @@ class GINN_inputLayer(layers.Layer):
 			self.vCS.append(vCS_j)
 			print('self.vCS is ',self.vCS)
 			# Creating backward pass.
-			def grad_GINN_op(*upstream, variables = self.flattened_W_tfv):#
-				#grad_xs = [0,0,0,0,0] # doesn't work
-				grad_xs = [0,0] # very stub!
-				#print('grad_xs is ',grad_xs)
-				grad_vars = []  # To store gradients of passed variables
-				print('*upstream right before asseritons are',*upstream)
-				print('variables right before asseritons are',variables)
-				# assert variables is not None
-				# assert len(variables) == K
-				# assert variables == W #for all k in range(self.K)
-				# Manually computing dy/dweights
-				for k in range(n.shape[0]):#using n.shape[0] instead of K for temporary solution
-					# print('upstream[k] is ',upstream[k])
-					# print('type of upstream[k] is ',tJJe(upstream[k]))
-					# print('variables[k] is ',variables[k])
-					# print('type of variables[k] is ',type(variables[k]))
-					dy_dw =  upstream[k]*self.algo1(k) #change variables[k]　to self.w[k]
-					# print('dy_dw is ',dy_dw)
-					# print('type of dy_dw is ',type(dy_dw))
-					grad_vars.append(dy_dw)
-				return grad_xs, grad_vars
-			return self.vCS, grad_GINN_op
+		def grad_GINN_op(*upstream, variables = self.flattened_W_tfv):#
+			#grad_xs = [0,0,0,0,0] # doesn't work
+			grad_xs = [0,0] # very stub!
+			#print('grad_xs is ',grad_xs)
+			grad_vars = []  # To store gradients of passed variables
+			print('*upstream right before asseritons are',*upstream)
+			print('variables right before asseritons are',variables)
+			# assert variables is not None
+			# assert len(variables) == K
+			# assert variables == W #for all k in range(self.K)
+			# Manually computing dy/dweights
+			for k in range(n.shape[0]):#using n.shape[0] instead of K for temporary solution
+				# print('upstream[k] is ',upstream[k])
+				# print('type of upstream[k] is ',tJJe(upstream[k]))
+				# print('variables[k] is ',variables[k])
+				# print('type of variables[k] is ',type(variables[k]))
+				dy_dw =  upstream[k]*self.algo1(k) #change variables[k]　to self.w[k]
+				# print('dy_dw is ',dy_dw)
+				# print('type of dy_dw is ',type(dy_dw))
+				grad_vars.append(dy_dw)
+			return grad_xs, grad_vars
+		return self.vCS, grad_GINN_op
 	
 	def algo1(self, k): #Implementing Algorithm 1 of Ito et al.(2020), pp.434
 		print('YOU ARE IN ALGO 1')
