@@ -90,9 +90,9 @@ class GINN_inputLayer(layers.Layer):
 			self.vCS.append(vCS_j)
 			print('self.vCS is ',self.vCS)
 			# Creating backward pass.
-		def grad_GINN_op(*upstream, variables = self.flattened_W_tfv):#
-			#grad_xs = [0,0,0,0,0] # doesn't work
-			grad_xs = [0,0] # very stub!
+		def grad_GINN_op(*upstream, variables = self.flattened_W_tfv):# 
+			#grad_xs = [0,0,j0,0,0] # doesn't work
+			grad_xs = [0,0,0,0,0,0,0,0,0,0] # very stub!
 			#print('grad_xs is ',grad_xs)
 			grad_vars = []  # To store gradients of passed variables
 			print('*upstream right before asseritons are',*upstream)
@@ -101,7 +101,7 @@ class GINN_inputLayer(layers.Layer):
 			# assert len(variables) == K
 			# assert variables == W #for all k in range(self.K)
 			# Manually computing dy/dweights
-			for k in range(n.shape[0]):#using n.shape[0] instead of K for temporary solution
+			for k in range(self.K):
 				# print('upstream[k] is ',upstream[k])
 				# print('type of upstream[k] is ',tJJe(upstream[k]))
 				# print('variables[k] is ',variables[k])
@@ -148,16 +148,11 @@ class GINN_inputLayer(layers.Layer):
 			# print('diagonailized_var.shape is ',diagonailized_var.shape)
 			matmuled_var = np.matmul(diagonailized_var, self.w3.T)
 			H_j_t = np.matmul(self.w4.T, matmuled_var)
-			# print('matmuled_var.shape is ',matmuled_var.shape)
-			# print('self.w4.shape is ',self.w4.shape)
-			# print('self.H_j_t.shape is ',H_j_t.shape)
 			
 			try: 
 				H_star_j_t
 			except UnboundLocalError:
 				H_star_j_t = np.zeros((2,self.K),dtype=float)
-
-			# print('H_star_j_t is ',H_star_j_t)
 
 			for local_k in range(self.K):
 				if H_j_t[0][local_k] < 0:
@@ -165,28 +160,17 @@ class GINN_inputLayer(layers.Layer):
 				if H_j_t[1][local_k] > 0:
 					H_star_j_t[1][local_k] = H_j_t[0][local_k]
 				
-			# print('H_star_j_t.shape is ',H_star_j_t.T.shape)
-			# print('delta_j_4.shape is ',delta_j_4.T.shape)
 			RHS_of_delta_j_2 = np.matmul(H_star_j_t.T, delta_j_4.T)
-			# print('a is ',a)
-			# print('a.shape is ',a.shape)
 			
 			u2_j = self.u2[j].numpy()
 			# print('np.tanh(u2_j)**2 is ',np.tanh(u2_j)**2)
 			# print('(np.tanh(u2_j)**2).shape is ',(np.tanh(u2_j)**2).shape)
 			LHS_of_delta_j_2 = 1- (np.tanh(u2_j))**2
-			###LHS_of_delta_j_2 = np.expand_dims(np.subtract(np.ones((20,),dtype=float),vCS**2),axis=1)
-			# print('j is ', j)
-			# print('j.shape is ', j.shape)
-
 			delta_2_j = np.multiply(LHS_of_delta_j_2,RHS_of_delta_j_2) # line 15 of Algorithm 1 in Ito et al.(2020), pp.434 
-			# print('delta_2_j is ',delta_2_j)	
-			# print('delta_2_j.shape',delta_2_j.shape)	
-			# z_1_k = 2 #stub
-		sum_of_prod_of_delta_k_2_star_and_z_k += delta_2_j[k] * self.Z[j][k] #z_j = self.z[j]
+		sum_of_prod_of_delta_k_2_star_and_z_k += delta_2_j[k] * self.Z[j] #z_j = self.z[j]
 		print('sum_of_var is ',sum_of_prod_of_delta_k_2_star_and_z_k)
 
-		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k / self._batch_size # Denominator is stub. Intention is to take average by Total N.
+		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k / self.batch_size # Denominator is stub. Intention is to take average by Total N.
 		
 		"""
 		# necesary values: inputlayer:u2_j, v_j,  y_j^CS, label, W3, 
@@ -306,20 +290,11 @@ class InputData(object):
 		#importing wegiht 
 		with open('data/W.pkl', 'rb') as fin:
 			self.W = pickle.load(fin)
-		#print('K=len(self.W)=',len(self.W)) # =20 = number of concepts
-		#for k in range(len(self.W)):
-		#	print('n[k]=len(W[',k,'][0])=',len(self.W[k][0]))
-		#print('type(W[7])=',type(self.W[7])) # <class 'numpy.ndarray'>
-		#print('W[7]=',self.W[7]) # [[ 0.69168144 -0.01242033]]
-		
 		#importing training_data(i.e. vbow) 
 		with open('data/training_data.pkl', 'rb') as fin:
 			self.training_data = pickle.load(fin)
 		#print('len(training_data)=', len(self.training_data)) # =56
 		t0 = self.training_data[0]
-		#print('len(training_data[0])=', len(t0)) # =20
-		#print('training_data[0]=', t0)
-		
 		#importing label (positive = 1, negative = 0) 
 		with open('data/labels.pkl', 'rb') as fin:
 			self.labels = pickle.load(fin)
