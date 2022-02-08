@@ -337,7 +337,7 @@ class InputData(object):
 
 data = InputData()
 g_model = GINN_model(data)
-g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(reduction=tf.keras.losses.Reduction.NONE),run_eagerly = True) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
+g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
 # print('data.inputs is ',data.inputs)
 # print('type of data.inputs is ',type(data.inputs))
 print(g_model.run_eagerly)
