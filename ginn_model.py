@@ -106,7 +106,10 @@ class GINN_inputLayer(layers.Layer):
 				# print('type of upstream[k] is ',tJJe(upstream[k]))
 				# print('variables[k] is ',variables[k])
 				# print('type of variables[k] is ',type(variables[k]))
-				dy_dw =  upstream[k]*self.algo1(k) #change variables[k]　to self.w[k]
+				# upmean= avg(upstream[local_j][k] for all j)
+				# algo1k = self.algo(k)
+				dy_dw =  self.algo1(k) #change variables[k]　to self.w[k]
+				#take average via dy_dw 
 				# print('dy_dw is ',dy_dw)
 				# print('type of dy_dw is ',type(dy_dw))
 				grad_vars.append(dy_dw)
@@ -334,19 +337,22 @@ class InputData(object):
 		print('top.input=', self.inputs)
 
 
+def main():
+	data = InputData()
+	g_model = GINN_model(data)
+	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
+	# print('data.inputs is ',data.inputs)
+	# print('type of data.inputs is ',type(data.inputs))
+	print(g_model.run_eagerly)
+	g_model.fit(data.inputs, epochs=3 )
+	g_model.summary()
+	# g_model.model.layers[1].get_weights()[0]
+	# print('g_model.secondlayer',g_model.secondlayer.get_weights()[0])
+	# test_weights = g_model.secondlayer.weights
+	# print(test_weights) 
+	# run test 
+	#result= g_model.predict(sample_x)
+	#print(result)
 
-data = InputData()
-g_model = GINN_model(data)
-g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
-# print('data.inputs is ',data.inputs)
-# print('type of data.inputs is ',type(data.inputs))
-print(g_model.run_eagerly)
-g_model.fit(data.inputs, epochs=3 )
-g_model.summary()
-# g_model.model.layers[1].get_weights()[0]
-# print('g_model.secondlayer',g_model.secondlayer.get_weights()[0])
-# test_weights = g_model.secondlayer.weights
-# print(test_weights) 
-# run test 
-#result= g_model.predict(sample_x)
-#print(result)
+
+main()
