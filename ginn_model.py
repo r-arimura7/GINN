@@ -92,14 +92,18 @@ class GINN_inputLayer(layers.Layer):
 			print('self.vCS is ',self.vCS)
 		# Creating backward pass.
 		def grad_GINN_op(*upstream, variables = self.flattened_W_tfv):# 
-			grad_xs = [0,0,0,0,0,0,0,0,0,0] # very stub!
+			grad_xs = [0] # very stub!
 			#print('grad_xs is ',grad_xs)
+			dy_dws = []
 			grad_vars = []  # To store gradients of passed variables
 			print('*upstream right before asseritons are',*upstream)
 			print('variables right before asseritons are',variables)
 			for k in range(self.K):
 				dy_dw =  self.algo1(k) #change variables[k]　to self.w[k]
-				grad_vars.append(dy_dw)
+				dy_dws.append(dy_dw)
+				#fallaten dy_dws to store into grad_vars
+			intermediate_grad_vars = [item for i in dy_dws for item in i]
+			grad_vars = tf.expand_dims(intermediate_grad_vars,axis=0)
 			return grad_xs, grad_vars
 		return self.vCS, grad_GINN_op
 	
