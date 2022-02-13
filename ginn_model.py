@@ -13,6 +13,7 @@ from tensorflow.python.keras.backend import dtype
 import pickle
 #from tensorflow.keras.backend import eval
 import random
+import os
 # tf.compat.v1.disable_eager_execution()
 
 class Model_wrapper(object):
@@ -55,10 +56,10 @@ class GINN_inputLayer(layers.Layer):
 		print('self.K is ',self.K)
 		print('self.n is ',self.n)
 		print('self.flattened_W is ',self.flattened_W)
-		return self.GINN_op(inputs,self.K,self.n,self.flattened_W_tfv)
+		return self.GINN_op(inputs)
 
 	@tf.custom_gradient
-	def GINN_op(self,x,K,n,flattened_W_tfv):
+	def GINN_op(self,x):
 		# x is frequencies, K is number of cluster, n is a container includes n_k, falltened_W is tf.Variables) 
 		# Creating forward pass
 		self.Z = []
@@ -72,10 +73,10 @@ class GINN_inputLayer(layers.Layer):
 			z_j = []
 			k0 = 0
 			print('is eager in custom_gradient',tf.executing_eagerly())
-			print('K is', K)
+			# print('K is', K)
 			for k in range(self.K):
 				# is same as self.K which represents number of cluster.
-				k1 = k0 + n[k]
+				k1 = k0 + self.n[k]
 				z_k = xs[k0:k1]
 				z_j.append(z_k)
 				weight_vector = tf.expand_dims(self.flattened_W_tfv[k0:k1],axis=0)
@@ -89,29 +90,15 @@ class GINN_inputLayer(layers.Layer):
 			print('vCS_j is',vCS_j)
 			self.vCS.append(vCS_j)
 			print('self.vCS is ',self.vCS)
-			# Creating backward pass.
+		# Creating backward pass.
 		def grad_GINN_op(*upstream, variables = self.flattened_W_tfv):# 
-			#grad_xs = [0,0,j0,0,0] # doesn't work
 			grad_xs = [0,0,0,0,0,0,0,0,0,0] # very stub!
 			#print('grad_xs is ',grad_xs)
 			grad_vars = []  # To store gradients of passed variables
 			print('*upstream right before asseritons are',*upstream)
 			print('variables right before asseritons are',variables)
-			# assert variables is not None
-			# assert len(variables) == K
-			# assert variables == W #for all k in range(self.K)
-			# Manually computing dy/dweights
 			for k in range(self.K):
-				# print('upstream[k] is ',upstream[k])
-				# print('type of upstream[k] is ',tJJe(upstream[k]))
-				# print('variables[k] is ',variables[k])
-				# print('type of variables[k] is ',type(variables[k]))
-				# upmean= avg(upstream[local_j][k] for all j)
-				# algo1k = self.algo(k)
 				dy_dw =  self.algo1(k) #change variables[k]　to self.w[k]
-				#take average via dy_dw 
-				# print('dy_dw is ',dy_dw)
-				# print('type of dy_dw is ',type(dy_dw))
 				grad_vars.append(dy_dw)
 			return grad_xs, grad_vars
 		return self.vCS, grad_GINN_op
@@ -120,7 +107,6 @@ class GINN_inputLayer(layers.Layer):
 		print('YOU ARE IN ALGO 1')
 		print('is eager in algo1',tf.executing_eagerly())
 		# update self.W[k] by reading document j whose polarity is b_j 
-		# tanh(x) := frac(e^2 - e^{-x})(e^x + e^{=x})
 		# j : document number
 		# k : cluster number
 		# m := sum_{k} n(k)
@@ -147,7 +133,6 @@ class GINN_inputLayer(layers.Layer):
 			# print('u3_j', u3_j)
 			derivative_f3 = self.tanh_derivative(u3_j)
 			diagonailized_var = np.diag(derivative_f3) 
-
 			# print('diagonailized_var.shape is ',diagonailized_var.shape)
 			matmuled_var = np.matmul(diagonailized_var, self.w3.T)
 			H_j_t = np.matmul(self.w4.T, matmuled_var)
@@ -170,10 +155,10 @@ class GINN_inputLayer(layers.Layer):
 			# print('(np.tanh(u2_j)**2).shape is ',(np.tanh(u2_j)**2).shape)
 			LHS_of_delta_j_2 = 1- (np.tanh(u2_j))**2
 			delta_2_j = np.multiply(LHS_of_delta_j_2,RHS_of_delta_j_2) # line 15 of Algorithm 1 in Ito et al.(2020), pp.434 
-		sum_of_prod_of_delta_k_2_star_and_z_k += delta_2_j[k] * self.Z[j] #z_j = self.z[j]
+			sum_of_prod_of_delta_k_2_star_and_z_k += delta_2_j[k] * self.Z[j] #z_j = self.z[j]
 		print('sum_of_var is ',sum_of_prod_of_delta_k_2_star_and_z_k)
 
-		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k / self.batch_size # Denominator is stub. Intention is to take average by Total N.
+		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k[k] / self.batch_size # Denominator is stub. Intention is to take average by Total N.
 		
 		"""
 		# necesary values: inputlayer:u2_j, v_j,  y_j^CS, label, W3, 
@@ -336,7 +321,17 @@ class InputData(object):
 		,drop_remainder= True)
 		print('top.input=', self.inputs)
 
+#ToDo write decorator to save output to .txt file
+def output_to_txt_file(f):
+	def log():
+		# os.system('script test.txt')
+		print('start now')
+		f()
 
+	return log 
+	
+
+# @output_to_txt_file
 def main():
 	data = InputData()
 	g_model = GINN_model(data)
@@ -353,6 +348,5 @@ def main():
 	# run test 
 	#result= g_model.predict(sample_x)
 	#print(result)
-
 
 main()
