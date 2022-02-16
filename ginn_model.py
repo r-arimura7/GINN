@@ -154,12 +154,13 @@ class GINN_inputLayer(layers.Layer):
 				
 			RHS_of_delta_j_2 = np.matmul(H_star_j_t.T, delta_j_4.T)
 			
-			u2_j = self.u2[j].numpy()
+			u2_j_np= self.u2[j].numpy()
+			u2_j = np.expand_dims(u2_j_np,axis=1)
 			# print('np.tanh(u2_j)**2 is ',np.tanh(u2_j)**2)
 			# print('(np.tanh(u2_j)**2).shape is ',(np.tanh(u2_j)**2).shape)
 			LHS_of_delta_j_2 = 1- (np.tanh(u2_j))**2
 			delta_2_j = np.multiply(LHS_of_delta_j_2,RHS_of_delta_j_2) # line 15 of Algorithm 1 in Ito et al.(2020), pp.434 
-			sum_of_prod_of_delta_k_2_star_and_z_k += delta_2_j[k] * self.Z[j] #z_j = self.z[j]
+			sum_of_prod_of_delta_k_2_star_and_z_k += delta_2_j[k] * self.Z[j][k] #z_j = self.z[j]
 		print('sum_of_var is ',sum_of_prod_of_delta_k_2_star_and_z_k)
 
 		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k[k] / self.batch_size # Denominator is stub. Intention is to take average by Total N.
