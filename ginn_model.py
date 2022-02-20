@@ -92,8 +92,10 @@ class GINN_inputLayer(layers.Layer):
 			print('self.vCS is ',self.vCS)
 		# Creating backward pass.
 		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
-			grad_xs = [0] # very stub!
-			#print('grad_xs is ',grad_xs)
+			inner_list=[]
+			dummy_word_num_list = [inner_list.append(0) for _ in range(len(x[0][0][:]))]
+			grad_xs = tf.constant(inner_list) # very stub!
+			print('grad_xs is ',grad_xs)
 			dy_dws = []
 			grad_vars = []  # To store gradients of passed variables
 			print('*upstream right before asseritons are',*upstream)
