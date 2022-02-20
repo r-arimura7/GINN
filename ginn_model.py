@@ -91,7 +91,7 @@ class GINN_inputLayer(layers.Layer):
 			self.vCS.append(vCS_j)
 			print('self.vCS is ',self.vCS)
 		# Creating backward pass.
-		def grad_GINN_op(*upstream, variables = self.flattened_W_tfv):# 
+		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
 			grad_xs = [0] # very stub!
 			#print('grad_xs is ',grad_xs)
 			dy_dws = []
@@ -117,14 +117,15 @@ class GINN_inputLayer(layers.Layer):
 		# i : word number in the cluster, the word is represented by w_{k,i}
 		# z^k_{j,i} : a real number
 		# z^k_j := (z^k_{j,1}, ... z^k_{j,n(k)) (1 x n(k))
-		sum_of_prod_of_delta_k_2_star_and_z_k = 0 #sum or product of delta_k_2_star_and z_k ,i.e., frequency, of doc j. See line 17 of Algorithm1
+		sum_of_prod_of_delta_k_2_star_and_z_k = 0 #sum of product of delta_k_2_star_and z_k ,i.e., frequency, of doc j. See line 17 of Algorithm1
 		for j in range(self.batch_size): #self.batch_size == the cardinality of Omega_m
 			# data = InputData() #stub 
 			d_j = self.transform_label_to_matrix(self.data.labels[j])
 			print(d_j)
 			# assert type(d_j) == numpy.ndarray 
 			y_j = self.y[j] # minibatch dimension already being considered here.
-			y_j_T = y_j.numpy()
+			y_j_np = y_j.numpy()
+			y_j_T = np.squeeze(y_j_np,axis=0) #Change matrix to vector to be consistent with Algo1 notation.
 			print('y_j_T is',y_j_T)
 			delta_j_4 = np.subtract(y_j_T,d_j)
 			# print('delta_j_4 is ',delta_j_4)
@@ -150,12 +151,12 @@ class GINN_inputLayer(layers.Layer):
 				if H_j_t[0][local_k] < 0:
 					H_star_j_t[0][local_k] = H_j_t[0][local_k]
 				if H_j_t[1][local_k] > 0:
-					H_star_j_t[1][local_k] = H_j_t[0][local_k]
+					H_star_j_t[1][local_k] = H_j_t[1][local_k]
 				
-			RHS_of_delta_j_2 = np.matmul(H_star_j_t.T, delta_j_4.T)
+			RHS_of_delta_j_2 = np.matmul(H_star_j_t.T, delta_j_4)
 			
-			u2_j_np= self.u2[j].numpy()
-			u2_j = np.expand_dims(u2_j_np,axis=1)
+			u2_j= self.u2[j].numpy()
+			# u2_j = np.expand_dims(u2_j_np,axis=1)
 			LHS_of_delta_j_2 = 1- (np.tanh(u2_j))**2
 			delta_2_j = np.multiply(LHS_of_delta_j_2,RHS_of_delta_j_2) # line 15 of Algorithm 1 in Ito et al.(2020), pp.434 
 			sum_of_prod_of_delta_k_2_star_and_z_k += delta_2_j[k] * self.Z[j][k] #z_j = self.z[j]
@@ -192,7 +193,7 @@ class GINN_inputLayer(layers.Layer):
 	#	return func1() 
 
 	def tanh_derivative(self, x):
-		y = 4/(np.exp(x)+np.exp(-x))**2
+		y = 1-(np.tanh(x))**2
 		return y	
 
 	def transform_label_to_matrix(self, datalabel):
