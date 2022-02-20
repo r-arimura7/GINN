@@ -104,6 +104,8 @@ class GINN_inputLayer(layers.Layer):
 				#fallaten dy_dws to store into grad_vars
 			intermediate_grad_vars = [item for i in dy_dws for item in i]
 			grad_vars = tf.expand_dims(intermediate_grad_vars,axis=0)
+			print('end of calc here?')
+			#May be lisitze grad_vars as the document says grad_vars is is a list<Tensor>.
 			return grad_xs, grad_vars
 		return self.vCS, grad_GINN_op
 	
