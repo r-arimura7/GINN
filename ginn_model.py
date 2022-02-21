@@ -94,7 +94,7 @@ class GINN_inputLayer(layers.Layer):
 		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
 			inner_list=[]
 			[inner_list.append(0) for _ in range(len(x[0][0][:]))]
-			grad_xs = tf.constant(inner_list) # very stub!
+			grad_xs = [tf.constant(inner_list)] # listize grad_xs as stated in tf.custom_gradient documentation. 
 			print('grad_xs is ',grad_xs)
 			dy_dws = []
 			grad_vars = []  # To store gradients of passed variables
@@ -105,7 +105,7 @@ class GINN_inputLayer(layers.Layer):
 				dy_dws.append(dy_dw)
 				#fallaten dy_dws to store into grad_vars
 			intermediate_grad_vars = [item for i in dy_dws for item in i]
-			grad_vars = tf.expand_dims(intermediate_grad_vars,axis=0)
+			grad_vars = [intermediate_grad_vars]#listize grad_vars as stated in tf.custom_gradient documentation.
 			print('end of calc here?')
 			#May be lisitze grad_vars as the document says grad_vars is is a list<Tensor>.
 			return grad_xs, grad_vars
