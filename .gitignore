@@ -1,2 +1,7 @@
 .DS_Store
 launch.json
+log_output.txt
+test_log.txt
+test.txt
+test2.txt
+.vscode
