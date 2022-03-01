@@ -42,13 +42,12 @@ class GINN_inputLayer(layers.Layer):
 	def build(self, input_shape):
 		self.processed_W = [k[0].flatten() for k in self.Weights]
 		self.flattened_W = np.concatenate(self.processed_W)
-		self.flattened_W_tfv = tf.Variable(self.flattened_W, trainable=True, dtype='float32')
+		self.flattened_W_tfv = [tf.Variable(i,trainable=True,dtype='float32') for i in self.flattened_W] 
+		
 		# for w in self.Weights: # register trainable variables
 		# 	self.W.append(tf.Variable(w.tolist(), trainable=True, dtype='float32'))
 		# init_array =  np.zeros((2,self.K))
-		# self.H_star_j_t =tf.Variable(init_array,dtype='float32',trainable=False)
-		super(GINN_inputLayer, self).build(input_shape)
-		print('is eager in build',tf.executing_eagerly())
+		# self.H_star_j_t =tf.Variable(init_array,dtype='float32',trainable=False) super(GINN_inputLayer, self).build(input_shape) print('is eager in build',tf.executing_eagerly())
 
 	def call(self, inputs):
 		print('inputs in call is ',inputs)
@@ -91,7 +90,7 @@ class GINN_inputLayer(layers.Layer):
 			self.vCS.append(vCS_j)
 			print('self.vCS is ',self.vCS)
 		# Creating backward pass.
-		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
+		def grad_GINN_op(*upstream, variables = self.flattened_W_tfv):# 
 			inner_list=[]
 			[inner_list.append(0) for _ in range(len(x[0][0][:]))]
 			grad_xs = [tf.constant(inner_list)] # listize grad_xs as stated in tf.custom_gradient documentation. 
