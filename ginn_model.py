@@ -58,9 +58,9 @@ class GINN_inputLayer(layers.Layer):
 		return self.GINN_op(inputs)
 
 	@tf.custom_gradient
-	def GINN_op(self,x):
+	def GINN_op(self,*x):
 		# x is frequencies, K is number of cluster, n is a container includes n_k, falltened_W is tf.Variables) 
-		# Creating forward pass
+		# Creating forward pass66661
 		self.Z = []
 		self.u2 = []
 		self.vCS = []
@@ -90,10 +90,10 @@ class GINN_inputLayer(layers.Layer):
 			self.vCS.append(vCS_j)
 			print('self.vCS is ',self.vCS)
 		# Creating backward pass.
-		def grad_GINN_op(*upstream, variables = self.flattened_W_tfv):# 
-			inner_list=[]
-			[inner_list.append(0) for _ in range(len(x[0][0][:]))]
-			grad_xs = [tf.constant(inner_list)] # listize grad_xs as stated in tf.custom_gradient documentation. 
+		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
+			# inner_list=[]
+			grad_xs = [tf.constant(1,dtype='float32') for _ in range(915)]#stub
+			# grad_xs = [tf.constant(inner_list)] # listize grad_xs as stated in tf.custom_gradient documentation. 
 			print('grad_xs is ',grad_xs)
 			dy_dws = []
 			grad_vars = []  # To store gradients of passed variables
@@ -104,7 +104,7 @@ class GINN_inputLayer(layers.Layer):
 				dy_dws.append(dy_dw)
 				#fallaten dy_dws to store into grad_vars
 			intermediate_grad_vars = [item for i in dy_dws for item in i]
-			grad_vars = [intermediate_grad_vars]#listize grad_vars as stated in tf.custom_gradient documentation.
+			grad_vars = intermediate_grad_vars
 			print('end of calc here?')
 			#May be lisitze grad_vars as the document says grad_vars is is a list<Tensor>.
 			return grad_xs, grad_vars
