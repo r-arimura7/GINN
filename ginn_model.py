@@ -58,7 +58,7 @@ class GINN_inputLayer(layers.Layer):
 		return self.GINN_op(inputs)
 
 	@tf.custom_gradient
-	def GINN_op(self,*x):
+	def GINN_op(self,x):
 		# x is frequencies, K is number of cluster, n is a container includes n_k, falltened_W is tf.Variables) 
 		# Creating forward pass66661
 		self.Z = []
