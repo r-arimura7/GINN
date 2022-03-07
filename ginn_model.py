@@ -43,6 +43,8 @@ class GINN_inputLayer(layers.Layer):
 		self.processed_W = [k[0].flatten() for k in self.Weights]
 		self.flattened_W = np.concatenate(self.processed_W)
 		self.flattened_W_tfv = [tf.Variable(i,trainable=True,dtype='float32') for i in self.flattened_W] 
+		print(self.flattened_W_tfv)
+		super(GINN_inputLayer, self).build(input_shape)
 		
 		# for w in self.Weights: # register trainable variables
 		# 	self.W.append(tf.Variable(w.tolist(), trainable=True, dtype='float32'))
@@ -55,7 +57,13 @@ class GINN_inputLayer(layers.Layer):
 		print('self.K is ',self.K)
 		print('self.n is ',self.n)
 		print('self.flattened_W is ',self.flattened_W)
-		return self.GINN_op(inputs)
+		print('YOU ARE IN call of input_layer ')
+		vCS = []
+		for j in range(self.batch_size): 
+			xs = inputs[j][0][:]
+			GINN_op_return_vals = self.GINN_op(xs)
+			vCS.append(GINN_op_return_vals[0])
+		return vCS 
 
 	@tf.custom_gradient
 	def GINN_op(self,x):
@@ -65,30 +73,30 @@ class GINN_inputLayer(layers.Layer):
 		self.u2 = []
 		self.vCS = []
 		#DEBUG now.
-		for j in range(self.batch_size): #x.shape[0]represents batch size, be consistent!
-			xs = x[j][0][:]
-			print('xs is ',xs)
-			ws = []
-			z_j = []
-			k0 = 0
-			print('is eager in custom_gradient',tf.executing_eagerly())
-			# print('K is', K)
-			for k in range(self.K):
-				# is same as self.K which represents number of cluster.
-				k1 = k0 + self.n[k]
-				z_k = xs[k0:k1]
-				z_j.append(z_k)
-				weight_vector = tf.expand_dims(self.flattened_W_tfv[k0:k1],axis=0)
-				ws.append(tf.linalg.matvec(weight_vector, z_k))
-				k0 = k1
-			self.Z.append(z_j)
-			u2_j = tf.concat(ws,axis=0) # you can use this in algo1()
-			print('u2_j =', u2_j)
-			self.u2.append(u2_j)
-			vCS_j = tf.keras.activations.tanh(u2_j)
-			print('vCS_j is',vCS_j)
-			self.vCS.append(vCS_j)
-			print('self.vCS is ',self.vCS)
+		# for j in range(self.batch_size): #x.shape[0]represents batch size, be consistent!
+		# 	xs = x[j][0][:]
+		xs = x
+		ws = []
+		z_j = []
+		k0 = 0
+		print('is eager in custom_gradient',tf.executing_eagerly())
+		# print('K is', K)
+		for k in range(self.K):
+			# is same as self.K which represents number of cluster.
+			k1 = k0 + self.n[k]
+			z_k = xs[k0:k1]
+			z_j.append(z_k)
+			weight_vector = tf.expand_dims(self.flattened_W_tfv[k0:k1],axis=0)
+			ws.append(tf.linalg.matvec(weight_vector, z_k))
+			k0 = k1
+		self.Z.append(z_j)
+		u2_j = tf.concat(ws,axis=0) # you can use this in algo1()
+		print('u2_j =', u2_j)
+		self.u2.append(u2_j)
+		vCS_j = tf.keras.activations.tanh(u2_j)
+		print('vCS_j is',vCS_j)
+		self.vCS.append(vCS_j)
+		print('self.vCS is ',self.vCS)
 		# Creating backward pass.
 		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
 			# inner_list=[]
