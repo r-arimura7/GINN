@@ -58,20 +58,21 @@ class GINN_inputLayer(layers.Layer):
 		print('self.n is ',self.n)
 		print('self.flattened_W is ',self.flattened_W)
 		print('YOU ARE IN call of input_layer ')
-		vCS = []
+		self.vCS = []
+		local_vCS = []
 		for j in range(self.batch_size): 
 			xs = inputs[j][0][:]
 			GINN_op_return_vals = self.GINN_op(xs)
-			vCS.append(GINN_op_return_vals[0])
-		return vCS 
+			local_vCS.append(GINN_op_return_vals[0])
+		return local_vCS 
 
 	@tf.custom_gradient
-	def GINN_op(self,x):
+	def GINN_op(self,*x):
 		# x is frequencies, K is number of cluster, n is a container includes n_k, falltened_W is tf.Variables) 
 		# Creating forward pass66661
 		self.Z = []
 		self.u2 = []
-		self.vCS = []
+		self.vCS = []#need to write this outside GINN_op 20220307 AR
 		#DEBUG now.
 		# for j in range(self.batch_size): #x.shape[0]represents batch size, be consistent!
 		# 	xs = x[j][0][:]
@@ -84,7 +85,7 @@ class GINN_inputLayer(layers.Layer):
 		for k in range(self.K):
 			# is same as self.K which represents number of cluster.
 			k1 = k0 + self.n[k]
-			z_k = xs[k0:k1]
+			z_k = xs[0][k0:k1]
 			z_j.append(z_k)
 			weight_vector = tf.expand_dims(self.flattened_W_tfv[k0:k1],axis=0)
 			ws.append(tf.linalg.matvec(weight_vector, z_k))
