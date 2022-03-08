@@ -4,7 +4,7 @@ from re import I
 from numpy.lib.function_base import append
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
+from keras import layers
 import numpy as np
 from tensorflow.python.eager.def_function import run_functions_eagerly
 #from tensorflow.python.autograph.core.converter import Feature
@@ -23,7 +23,7 @@ class Model_wrapper(object):
 class GINN_inputLayer(layers.Layer):
 	def __init__(self, Weights, units, il_batch_input_shape):
 		#W is numpy array from imported pickel.
-		super(GINN_inputLayer, self).__init__(dynamic= True,batch_input_shape = il_batch_input_shape) #instantiate super class. 
+		super(GINN_inputLayer, self).__init__(dynamic= False,batch_input_shape = il_batch_input_shape) #instantiate super class. 
 		print('is eager in __init__',tf.executing_eagerly())
 		self.Weights = Weights
 		self.K = len(Weights) # number of clusters (or concepts)
@@ -61,10 +61,10 @@ class GINN_inputLayer(layers.Layer):
 		self.vCS = []
 		local_vCS = []
 		for j in range(self.batch_size): 
-			xs = inputs[j][0][:]
-			GINN_op_return_vals = self.GINN_op(xs)
-			local_vCS.append(GINN_op_return_vals[0])
-		return local_vCS 
+			xs = inputs[j][0]
+			GINN_op_returned_vCS, local_grad_GINN_op = self.GINN_op(xs)
+			local_vCS.append(GINN_op_returned_vCS)
+		return local_vCS , local_grad_GINN_op 
 
 	@tf.custom_gradient
 	def GINN_op(self,*x):
@@ -117,7 +117,10 @@ class GINN_inputLayer(layers.Layer):
 			print('end of calc here?')
 			#May be lisitze grad_vars as the document says grad_vars is is a list<Tensor>.
 			return grad_xs, grad_vars
+		print(self.vCS)
+		print(grad_GINN_op)
 		return self.vCS, grad_GINN_op
+
 	
 	def algo1(self, k): #Implementing Algorithm 1 of Ito et al.(2020), pp.434
 		print('YOU ARE IN ALGO 1')
@@ -144,7 +147,7 @@ class GINN_inputLayer(layers.Layer):
 			self.w3 = self.model.model.layers[1].get_weights()[0]
 			# print(tf.executing_eagerly())
 			self.w4 = self.model.model.layers[2].get_weights()[0]
-			# print('w3 is ', self.w3.shape, 'vCS.numpy() is ', self.vCS.numpy().shape)
+			print('w3 is ', self.w3.shape, 'vCS.numpy() is ', self.vCS.numpy().shape)
 			vCS_j = self.vCS[j].numpy()
 			u3_j = np.matmul(self.w3.T, vCS_j)
 			# print('u3_j', u3_j)
