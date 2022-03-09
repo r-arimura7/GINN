@@ -59,12 +59,11 @@ class GINN_inputLayer(layers.Layer):
 		print('self.flattened_W is ',self.flattened_W)
 		print('YOU ARE IN call of input_layer ')
 		self.vCS = []
-		local_vCS = []
 		for j in range(self.batch_size): 
 			xs = inputs[j][0]
-			GINN_op_returned_vCS, local_grad_GINN_op = self.GINN_op(xs)
-			local_vCS.append(GINN_op_returned_vCS)
-		return local_vCS , local_grad_GINN_op 
+			vCS = self.GINN_op(xs)
+			self.vCS.append(vCS)
+		return self.vCS 
 
 	@tf.custom_gradient
 	def GINN_op(self,*x):
@@ -72,8 +71,7 @@ class GINN_inputLayer(layers.Layer):
 		# Creating forward pass66661
 		self.Z = []
 		self.u2 = []
-		self.vCS = []#need to write this outside GINN_op 20220307 AR
-		#DEBUG now.
+		# self.vCS = []#need to write this outside GINN_op 20220307 AR
 		# for j in range(self.batch_size): #x.shape[0]represents batch size, be consistent!
 		# 	xs = x[j][0][:]
 		xs = x
@@ -96,8 +94,6 @@ class GINN_inputLayer(layers.Layer):
 		self.u2.append(u2_j)
 		vCS_j = tf.keras.activations.tanh(u2_j)
 		print('vCS_j is',vCS_j)
-		self.vCS.append(vCS_j)
-		print('self.vCS is ',self.vCS)
 		# Creating backward pass.
 		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
 			# inner_list=[]
@@ -119,7 +115,7 @@ class GINN_inputLayer(layers.Layer):
 			return grad_xs, grad_vars
 		print(self.vCS)
 		print(grad_GINN_op)
-		return self.vCS, grad_GINN_op
+		return vCS_j, grad_GINN_op
 
 	
 	def algo1(self, k): #Implementing Algorithm 1 of Ito et al.(2020), pp.434
@@ -147,7 +143,7 @@ class GINN_inputLayer(layers.Layer):
 			self.w3 = self.model.model.layers[1].get_weights()[0]
 			# print(tf.executing_eagerly())
 			self.w4 = self.model.model.layers[2].get_weights()[0]
-			print('w3 is ', self.w3.shape, 'vCS.numpy() is ', self.vCS.numpy().shape)
+			# print('w3 is ', self.w3.shape, 'vCS.numpy() is ', self.vCS.numpy().shape)
 			vCS_j = self.vCS[j].numpy()
 			u3_j = np.matmul(self.w3.T, vCS_j)
 			# print('u3_j', u3_j)
@@ -251,7 +247,7 @@ class GINN_model(keras.Model):
 		self.outputlayer = layers.Dense(2, activation='softmax') #stub 10 is cardinality of minibatch.
 		self.inputlayer.extract_vars(self)
 		print('input_shape is ',input_shape)
-		super(GINN_model, self).build(input_shape)
+		# super(GINN_model, self).build(input_shape)
 	
 	
 	def call(self, inputs): # inputs = v^{BOW}_j
