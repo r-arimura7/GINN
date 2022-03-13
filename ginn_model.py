@@ -59,6 +59,8 @@ class GINN_inputLayer(layers.Layer):
 		print('self.flattened_W is ',self.flattened_W)
 		print('YOU ARE IN call of input_layer ')
 		self.vCS = []
+		self.Z = [] # moved here; taka, Mar/10
+		self.u2 = [] # moved here; taka, Mar/10
 		for j in range(self.batch_size): 
 			xs = inputs[j][0]
 			vCS = self.GINN_op(xs)
@@ -69,8 +71,8 @@ class GINN_inputLayer(layers.Layer):
 	def GINN_op(self,*x):
 		# x is frequencies, K is number of cluster, n is a container includes n_k, falltened_W is tf.Variables) 
 		# Creating forward pass66661
-		self.Z = []
-		self.u2 = []
+		# self.Z = []
+		# self.u2 = []
 		# self.vCS = []#need to write this outside GINN_op 20220307 AR
 		# for j in range(self.batch_size): #x.shape[0]represents batch size, be consistent!
 		# 	xs = x[j][0][:]
