@@ -62,9 +62,10 @@ class GINN_inputLayer(layers.Layer):
 		self.Z = [] # moved here; taka, Mar/10
 		self.u2 = [] # moved here; taka, Mar/10
 		for j in range(self.batch_size): 
-			self.data.data_frequencies_All_data
-			xs = inputs[j][0]
-			params = [xs]
+			All_data = self.data.data_frequencies_All_data
+			intermediate_xs = All_data[j] #YOU MUST TAKE BATCH DIMENSION INTO ACCOUNT!
+			xs = [float(x) for x in intermediate_xs]
+			params = xs
 			vCS = self.GINN_op(*params)
 			self.vCS.append(vCS)
 		return self.vCS 
@@ -87,7 +88,7 @@ class GINN_inputLayer(layers.Layer):
 		for k in range(self.K):
 			# is same as self.K which represents number of cluster.
 			k1 = k0 + self.n[k]
-			z_k = xs[0][k0:k1]
+			z_k = xs[k0:k1]
 			z_j.append(z_k)
 			weight_vector = tf.expand_dims(self.flattened_W_tfv[k0:k1],axis=0)
 			ws.append(tf.linalg.matvec(weight_vector, z_k))
@@ -174,7 +175,7 @@ class GINN_inputLayer(layers.Layer):
 			# u2_j = np.expand_dims(u2_j_np,axis=1)
 			LHS_of_delta_j_2 = 1- (np.tanh(u2_j))**2
 			delta_2_j = np.multiply(LHS_of_delta_j_2,RHS_of_delta_j_2) # line 15 of Algorithm 1 in Ito et al.(2020), pp.434 
-			sum_of_prod_of_delta_k_2_star_and_z_k += delta_2_j[k] * self.Z[j][k] #z_j = self.z[j]
+			sum_of_prod_of_delta_k_2_star_and_z_k += np.multiply(delta_2_j[k], self.Z[j][k]) #z_j = self.z[j]
 			print('sum_of_var is ',sum_of_prod_of_delta_k_2_star_and_z_k)
 
 		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k / self.batch_size # Denominator is stub. Intention is to take average by Total N.
