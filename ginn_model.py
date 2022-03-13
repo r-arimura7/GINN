@@ -62,8 +62,10 @@ class GINN_inputLayer(layers.Layer):
 		self.Z = [] # moved here; taka, Mar/10
 		self.u2 = [] # moved here; taka, Mar/10
 		for j in range(self.batch_size): 
+			self.data.data_frequencies_All_data
 			xs = inputs[j][0]
-			vCS = self.GINN_op(xs)
+			params = [xs]
+			vCS = self.GINN_op(*params)
 			self.vCS.append(vCS)
 		return self.vCS 
 
@@ -76,7 +78,7 @@ class GINN_inputLayer(layers.Layer):
 		# self.vCS = []#need to write this outside GINN_op 20220307 AR
 		# for j in range(self.batch_size): #x.shape[0]represents batch size, be consistent!
 		# 	xs = x[j][0][:]
-		xs = x
+		xs = x 
 		ws = []
 		z_j = []
 		k0 = 0
@@ -319,7 +321,8 @@ class InputData(object):
 			di = preprocessed_training_data[cnt][:].tolist()
 			#data_intermediatelist.append(di)
 			data_intermediatelist.append(sum(di,[])) # flatten
-		#print('data_intermediatelist[0]=', data_intermediatelist[0])
+		print('data_intermediatelist[0]=', data_intermediatelist[0])
+		self.data_frequencies_All_data = data_intermediatelist
 		data_frequencies = tf.expand_dims(tf.constant(data_intermediatelist,dtype = 'float32'),axis= 1) #expand dim at axis 1 to enable future propergation among layers.
 
 		self.x = data_frequencies
