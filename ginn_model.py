@@ -24,13 +24,13 @@ class GINN_inputLayer(layers.Layer):
 	def __init__(self, Weights, units, il_batch_input_shape):
 		#W is numpy array from imported pickel.
 		super(GINN_inputLayer, self).__init__(dynamic= False,batch_input_shape = il_batch_input_shape) #instantiate super class. 
-		print('is eager in __init__',tf.executing_eagerly())
+		# print('is eager in __init__',tf.executing_eagerly())
 		self.Weights = Weights
 		self.K = len(Weights) # number of clusters (or concepts)
 		self.units = units
 		print('il_batch_input_shape is ',il_batch_input_shape)
 		self.batch_size =  il_batch_input_shape[0]
-		print('self.batch_size is ',self.batch_size)
+		# print('self.batch_size is ',self.batch_size)
 		self.n = np.zeros(self.K, dtype=int)
 		self.m = 0 # Total number of words`
 		# self.n[k] is the number fo words contained in the k'th concept
@@ -43,7 +43,7 @@ class GINN_inputLayer(layers.Layer):
 		self.processed_W = [k[0].flatten() for k in self.Weights]
 		self.flattened_W = np.concatenate(self.processed_W)
 		self.flattened_W_tfv = [tf.Variable(i,trainable=True,dtype='float32') for i in self.flattened_W] 
-		print(self.flattened_W_tfv)
+		# print(self.flattened_W_tfv)
 		super(GINN_inputLayer, self).build(input_shape)
 		
 		# for w in self.Weights: # register trainable variables
@@ -52,18 +52,18 @@ class GINN_inputLayer(layers.Layer):
 		# self.H_star_j_t =tf.Variable(init_array,dtype='float32',trainable=False) super(GINN_inputLayer, self).build(input_shape) print('is eager in build',tf.executing_eagerly())
 
 	def call(self, inputs):
-		print('inputs in call is ',inputs)
-		print('is eager in call',tf.executing_eagerly())
-		print('self.K is ',self.K)
-		print('self.n is ',self.n)
-		print('self.flattened_W is ',self.flattened_W)
-		print('YOU ARE IN call of input_layer ')
+		# print('inputs in call is ',inputs)
+		# print('is eager in call',tf.executing_eagerly())
+		# print('self.K is ',self.K)
+		# print('self.n is ',self.n)
+		# print('self.flattened_W is ',self.flattened_W)
+		# print('YOU ARE IN call of input_layer ')
 		self.vCS = []
 		self.Z = [] # moved here; taka, Mar/10
 		self.u2 = [] # moved here; taka, Mar/10
 		for j in range(self.batch_size): 
 			All_data = self.data.data_frequencies_All_data
-			intermediate_xs = All_data[j] #YOU MUST TAKE BATCH DIMENSION INTO ACCOUNT!
+			intermediate_xs = All_data[j] #STUB! YOU MUST TAKE BATCH DIMENSION INTO ACCOUNT!
 			xs = [float(x) for x in intermediate_xs]
 			params = xs
 			vCS = self.GINN_op(*params)
@@ -83,7 +83,7 @@ class GINN_inputLayer(layers.Layer):
 		ws = []
 		z_j = []
 		k0 = 0
-		print('is eager in custom_gradient',tf.executing_eagerly())
+		# print('is eager in custom_gradient',tf.executing_eagerly())
 		# print('K is', K)
 		for k in range(self.K):
 			# is same as self.K which represents number of cluster.
@@ -95,37 +95,39 @@ class GINN_inputLayer(layers.Layer):
 			k0 = k1
 		self.Z.append(z_j)
 		u2_j = tf.concat(ws,axis=0) # you can use this in algo1()
-		print('u2_j =', u2_j)
+		# print('u2_j =', u2_j)
 		self.u2.append(u2_j)
 		vCS_j = tf.keras.activations.tanh(u2_j)
-		print('vCS_j is',vCS_j)
+		# print('vCS_j is',vCS_j)
 		# Creating backward pass.
 		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
 			# inner_list=[]
 			grad_xs = [tf.constant(1,dtype='float32') for _ in range(915)]#stub
 			# grad_xs = [tf.constant(inner_list)] # listize grad_xs as stated in tf.custom_gradient documentation. 
-			print('grad_xs is ',grad_xs)
+			# print('grad_xs is ',grad_xs)
+			# print('upstream is ',upstream)
 			dy_dws = []
 			grad_vars = []  # To store gradients of passed variables
-			print('*upstream right before asseritons are',*upstream)
-			print('variables right before asseritons are',variables)
+			# print('*upstream right before asseritons are',*upstream)
+			# print('variables right before asseritons are',variables)
 			for k in range(self.K):
 				dy_dw =  self.algo1(k) #change variables[k]　to self.w[k]
 				dy_dws.append(dy_dw)
 				#fallaten dy_dws to store into grad_vars
 			intermediate_grad_vars = [item for i in dy_dws for item in i]
-			grad_vars = intermediate_grad_vars
-			print('end of calc here?')
+			# grad_vars = intermediate_grad_vars
+			# print('end of calc here?')
+			grad_vars = [tf.constant(0.001,dtype='float32') for _ in range(915)]#stub
 			#May be lisitze grad_vars as the document says grad_vars is is a list<Tensor>.
 			return grad_xs, grad_vars
-		print(self.vCS)
-		print(grad_GINN_op)
+		# print(self.vCS)
+		# print(grad_GINN_op)
 		return vCS_j, grad_GINN_op
 
 	
 	def algo1(self, k): #Implementing Algorithm 1 of Ito et al.(2020), pp.434
-		print('YOU ARE IN ALGO 1')
-		print('is eager in algo1',tf.executing_eagerly())
+		# print('YOU ARE IN ALGO 1')
+		# print('is eager in algo1',tf.executing_eagerly())
 		# update self.W[k] by reading document j whose polarity is b_j 
 		# j : document number
 		# k : cluster number
@@ -137,12 +139,12 @@ class GINN_inputLayer(layers.Layer):
 		for j in range(self.batch_size): #self.batch_size == the cardinality of Omega_m
 			# data = InputData() #stub 
 			d_j = self.transform_label_to_matrix(self.data.labels[j])
-			print(d_j)
+			# print(d_j)
 			# assert type(d_j) == numpy.ndarray 
 			y_j = self.y[j] # minibatch dimension already being considered here.
 			y_j_np = y_j.numpy()
 			y_j_T = np.squeeze(y_j_np,axis=0) #Change matrix to vector to be consistent with Algo1 notation.
-			print('y_j_T is',y_j_T)
+			# print('y_j_T is',y_j_T)
 			delta_j_4 = np.subtract(y_j_T,d_j)
 			# print('delta_j_4 is ',delta_j_4)
 			self.w3 = self.model.model.layers[1].get_weights()[0]
@@ -176,7 +178,7 @@ class GINN_inputLayer(layers.Layer):
 			LHS_of_delta_j_2 = 1- (np.tanh(u2_j))**2
 			delta_2_j = np.multiply(LHS_of_delta_j_2,RHS_of_delta_j_2) # line 15 of Algorithm 1 in Ito et al.(2020), pp.434 
 			sum_of_prod_of_delta_k_2_star_and_z_k += np.multiply(delta_2_j[k], self.Z[j][k]) #z_j = self.z[j]
-			print('sum_of_var is ',sum_of_prod_of_delta_k_2_star_and_z_k)
+			# print('sum_of_var is ',sum_of_prod_of_delta_k_2_star_and_z_k)
 
 		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k / self.batch_size # Denominator is stub. Intention is to take average by Total N.
 		
@@ -243,7 +245,7 @@ class GINN_model(keras.Model):
 		self.data = data
 	
 	def build(self, input_shape):
-		print('is eager in GINN_model build',tf.executing_eagerly())
+		# print('is eager in GINN_model build',tf.executing_eagerly())
 		self.inputlayer = GINN_inputLayer(self.data.W,units = self.data.inputs,il_batch_input_shape= (10,1,915))#stub
 		self.K = self.inputlayer.K
 		self.K2 = self.K*2 # stub AR COMMENT: two edges from Concept layer to Context. See Fig 1 of Ito et al.(2020)
@@ -251,7 +253,7 @@ class GINN_model(keras.Model):
 		# print('initalized secondlyaer is', self.secondlayer.weights)
 		self.outputlayer = layers.Dense(2, activation='softmax') #stub 10 is cardinality of minibatch.
 		self.inputlayer.extract_vars(self)
-		print('input_shape is ',input_shape)
+		# print('input_shape is ',input_shape)
 		# super(GINN_model, self).build(input_shape)
 	
 	
@@ -260,28 +262,28 @@ class GINN_model(keras.Model):
 		# print('model.input[1]=', inputs[1])
 		# print('model.input[1][0]=', inputs[1][0])
 		# print('type of model.input=', type(inputs))
-		print('inputs',inputs)
-		print('is eager in GINN_model call',tf.executing_eagerly())
+		# print('inputs',inputs)
+		# print('is eager in GINN_model call',tf.executing_eagerly())
 		vCS = self.inputlayer(inputs) # very stub
 		# vCS = tf.expand_dims(vCS,axis=0)
-		print('pre-concatenation vCS is ',vCS)
+		# print('pre-concatenation vCS is ',vCS)
 		# vCS = tf.concat(vCS,axis= 0 )
 		# print('post-concatenation vCS is ' ,vCS)
 		vCS = tf.expand_dims(vCS,axis=1)
-		print('post-expand_dims vCS is ' ,vCS)
+		# print('post-expand_dims vCS is ' ,vCS)
 		V3 = self.secondlayer(vCS)
 		self.inputlayer.w3 = self.secondlayer.weights
-		print('V3 is ',V3)
+		# print('V3 is ',V3)
 		y = self.outputlayer(V3)
-		print('y is ',y)
+		# print('y is ',y)
 		self.y = y
-		print('self.y in GINN_model call() is',self.y)
-		print('self.y.shape in GINN_model call() is',self.y.shape)
+		# print('self.y in GINN_model call() is',self.y)
+		# print('self.y.shape in GINN_model call() is',self.y.shape)
 		# print('tf.executing_eagerly T or F',tf.executing_eagerly())
 		# tf.config.run_functions_eagerly(True)
 		self.inputlayer.set_y(self.y)
 		y_prob_pred = tf.math.reduce_max(y, axis=2,keepdims= True)
-		print('y_prob_pred is ',y_prob_pred)
+		# print('y_prob_pred is ',y_prob_pred)
 
 		# stub_pred_of_y = tf.squeeze(tf.slice(self.y,[0,0,0],[1,10,1]),axis=0) #very stub as pred is chosen from manual slicing. Pred shoud be selected from argamaxed-index!!	
 		# print('stub_pred_of_y is ',stub_pred_of_y )
@@ -322,25 +324,25 @@ class InputData(object):
 			di = preprocessed_training_data[cnt][:].tolist()
 			#data_intermediatelist.append(di)
 			data_intermediatelist.append(sum(di,[])) # flatten
-		print('data_intermediatelist[0]=', data_intermediatelist[0])
+		# print('data_intermediatelist[0]=', data_intermediatelist[0])
 		self.data_frequencies_All_data = data_intermediatelist
 		data_frequencies = tf.expand_dims(tf.constant(data_intermediatelist,dtype = 'float32'),axis= 1) #expand dim at axis 1 to enable future propergation among layers.
 
 		self.x = data_frequencies
-		print('self.x is ',self.x)
+		# print('self.x is ',self.x)
 		# self.x = tf.expand_dims(self.x,axis =2) #Adding dummy dimension for future preprocessing spefically fro Binary cross entropy and its argument 'reduction=tf.keras.losses.Reduction.NONE'.
-		print('self.x is ',self.x)
+		# print('self.x is ',self.x)
 		
 		#self.frequencies = tf.ragged.constant(self.preprocessed_input_data, dtype='float32')	
 
 		#2.Preprocess label
 		self.formatted_labels=tf.expand_dims(tf.constant(self.labels[:].tolist(),dtype= 'float32'),axis=1)
-		print(self.x)
-		print(self.formatted_labels)
+		# print(self.x)
+		# print(self.formatted_labels)
 		#print('self.formatted_labels=', self.formatted_labels)
 		self.inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(10
 		,drop_remainder= True)
-		print('top.input=', self.inputs)
+		# print('top.input=', self.inputs)
 
 #ToDo write decorator to save output to .txt file
 def output_to_txt_file(f):
