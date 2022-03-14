@@ -114,10 +114,11 @@ class GINN_inputLayer(layers.Layer):
 				dy_dw =  self.algo1(k) #change variables[k]　to self.w[k]
 				dy_dws.append(dy_dw)
 				#fallaten dy_dws to store into grad_vars
-			intermediate_grad_vars = [item for i in dy_dws for item in i]
+			intermediate_grad_vars = [tf.constant(item, dtype='float32') for i in dy_dws for item in i]
 			# grad_vars = intermediate_grad_vars
 			# print('end of calc here?')
-			grad_vars = [tf.constant(0.001,dtype='float32') for _ in range(915)]#stub
+			# grad_vars = [tf.constant(0.001,dtype='float32') for _ in range(915)]#stub
+			grad_vars = intermediate_grad_vars 
 			#May be lisitze grad_vars as the document says grad_vars is is a list<Tensor>.
 			return grad_xs, grad_vars
 		# print(self.vCS)
