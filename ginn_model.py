@@ -21,14 +21,14 @@ class Model_wrapper(object):
 		self.model = model
 
 class GINN_inputLayer(layers.Layer):
-	def __init__(self, Weights, units, il_batch_input_shape):
+	def __init__(self, Weights, units = None, il_batch_input_shape = None):
 		#W is numpy array from imported pickel.
-		super(GINN_inputLayer, self).__init__(dynamic= False,batch_input_shape = il_batch_input_shape) #instantiate super class. 
+		super(GINN_inputLayer, self).__init__(dynamic= True, batch_input_shape = il_batch_input_shape) #instantiate super class. 
 		# print('is eager in __init__',tf.executing_eagerly())
 		self.Weights = Weights
 		self.K = len(Weights) # number of clusters (or concepts)
 		self.units = units
-		print('il_batch_input_shape is ',il_batch_input_shape)
+		# print('il_batch_input_shape is ',il_batch_input_shape)
 		self.batch_size =  il_batch_input_shape[0]
 		# print('self.batch_size is ',self.batch_size)
 		self.n = np.zeros(self.K, dtype=int)
@@ -102,14 +102,13 @@ class GINN_inputLayer(layers.Layer):
 		# Creating backward pass.
 		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
 			# inner_list=[]
+			print(self.count_params())
 			grad_xs = [tf.constant(1,dtype='float32') for _ in range(915)]#stub
 			# grad_xs = [tf.constant(inner_list)] # listize grad_xs as stated in tf.custom_gradient documentation. 
 			# print('grad_xs is ',grad_xs)
 			# print('upstream is ',upstream)
 			dy_dws = []
 			grad_vars = []  # To store gradients of passed variables
-			# print('*upstream right before asseritons are',*upstream)
-			# print('variables right before asseritons are',variables)
 			for k in range(self.K):
 				dy_dw =  self.algo1(k) #change variables[k]　to self.w[k]
 				dy_dws.append(dy_dw)
@@ -123,6 +122,7 @@ class GINN_inputLayer(layers.Layer):
 			return grad_xs, grad_vars
 		# print(self.vCS)
 		# print(grad_GINN_op)
+		print(self.count_params())
 		return vCS_j, grad_GINN_op
 
 	
@@ -247,10 +247,10 @@ class GINN_model(keras.Model):
 	
 	def build(self, input_shape):
 		# print('is eager in GINN_model build',tf.executing_eagerly())
-		self.inputlayer = GINN_inputLayer(self.data.W,units = self.data.inputs,il_batch_input_shape= (10,1,915))#stub
+		self.inputlayer = GINN_inputLayer(self.data.W,units = 20,il_batch_input_shape= (10,1,915))#stub
 		self.K = self.inputlayer.K
 		self.K2 = self.K*2 # stub AR COMMENT: two edges from Concept layer to Context. See Fig 1 of Ito et al.(2020)
-		self.secondlayer = layers.Dense(self.K2, activation="tanh",kernel_initializer='random_normal',use_bias = False)
+		self.secondlayer = layers.Dense(self.K2, activation="tanh",kernel_initializer='random_normal',use_bias = False,)
 		# print('initalized secondlyaer is', self.secondlayer.weights)
 		self.outputlayer = layers.Dense(2, activation='softmax') #stub 10 is cardinality of minibatch.
 		self.inputlayer.extract_vars(self)
@@ -266,28 +266,38 @@ class GINN_model(keras.Model):
 		# print('inputs',inputs)
 		# print('is eager in GINN_model call',tf.executing_eagerly())
 		vCS = self.inputlayer(inputs) # very stub
+		print('num of params in inputlayer',self.inputlayer.count_params())
 		# vCS = tf.expand_dims(vCS,axis=0)
 		# print('pre-concatenation vCS is ',vCS)
 		# vCS = tf.concat(vCS,axis= 0 )
 		# print('post-concatenation vCS is ' ,vCS)
-		vCS = tf.expand_dims(vCS,axis=1)
+		local_vCS = tf.expand_dims(vCS,axis=1)
+		print('num of params in inputlayer post tf.expand_dims',self.inputlayer.count_params())
 		# print('post-expand_dims vCS is ' ,vCS)
-		V3 = self.secondlayer(vCS)
-		self.inputlayer.w3 = self.secondlayer.weights
-		# print('V3 is ',V3)
+		# print('num of params in secondlayer',self.secondlayer.count_params())
+		V3 = self.secondlayer(local_vCS)
+		print('num of params in secondlayer',self.secondlayer.count_params())
+
+		print('num of params in inputlayer post secondlayer',self.inputlayer.count_params())
+		# self.inputlayer.w3 = self.secondlayer.weights
+		print('num of params in inputlayer pre outpulayer',self.inputlayer.count_params())
 		y = self.outputlayer(V3)
+		print('num of params in inputlayer post outpulayer',self.inputlayer.count_params())
 		# print('y is ',y)
 		self.y = y
 		# print('self.y in GINN_model call() is',self.y)
 		# print('self.y.shape in GINN_model call() is',self.y.shape)
 		# print('tf.executing_eagerly T or F',tf.executing_eagerly())
 		# tf.config.run_functions_eagerly(True)
+		print('num of params in inputlayer pre register y',self.inputlayer.count_params())
 		self.inputlayer.set_y(self.y)
+		print('num of params in inputlayer post register y',self.inputlayer.count_params())
 		y_prob_pred = tf.math.reduce_max(y, axis=2,keepdims= True)
 		# print('y_prob_pred is ',y_prob_pred)
 
 		# stub_pred_of_y = tf.squeeze(tf.slice(self.y,[0,0,0],[1,10,1]),axis=0) #very stub as pred is chosen from manual slicing. Pred shoud be selected from argamaxed-index!!	
 		# print('stub_pred_of_y is ',stub_pred_of_y )
+		print('num of params in inputlayer pre model return',self.inputlayer.count_params())
 		return y_prob_pred 
 
 
@@ -355,7 +365,7 @@ def output_to_txt_file(f):
 	return log 
 	
 
-# @output_to_txt_file
+@output_to_txt_file
 def main():
 	data = InputData()
 	g_model = GINN_model(data)
@@ -365,8 +375,8 @@ def main():
 	print(g_model.run_eagerly)
 	g_model.fit(data.inputs, epochs=3 )
 	g_model.summary()
-	# g_model.model.layers[1].get_weights()[0]
-	# print('g_model.secondlayer',g_model.secondlayer.get_weights()[0])
+	# g_model.model.layers[].get_weights()[0]
+	# print('g_model.inputlayer',g_model.inputlayer.get_weights())
 	# test_weights = g_model.secondlayer.weights
 	# print(test_weights) 
 	# run test 
@@ -374,3 +384,4 @@ def main():
 	#print(result)
 
 main()
+
