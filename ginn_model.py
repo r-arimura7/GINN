@@ -102,7 +102,6 @@ class GINN_inputLayer(layers.Layer):
 		# Creating backward pass.
 		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
 			# inner_list=[]
-			print(self.count_params())
 			grad_xs = [tf.constant(1,dtype='float32') for _ in range(915)]#stub
 			# grad_xs = [tf.constant(inner_list)] # listize grad_xs as stated in tf.custom_gradient documentation. 
 			# print('grad_xs is ',grad_xs)
@@ -122,7 +121,7 @@ class GINN_inputLayer(layers.Layer):
 			return grad_xs, grad_vars
 		# print(self.vCS)
 		# print(grad_GINN_op)
-		print(self.count_params())
+		# print(self.count_params())
 		return vCS_j, grad_GINN_op
 
 	
@@ -272,32 +271,24 @@ class GINN_model(keras.Model):
 		# vCS = tf.concat(vCS,axis= 0 )
 		# print('post-concatenation vCS is ' ,vCS)
 		local_vCS = tf.expand_dims(vCS,axis=1)
-		print('num of params in inputlayer post tf.expand_dims',self.inputlayer.count_params())
 		# print('post-expand_dims vCS is ' ,vCS)
 		# print('num of params in secondlayer',self.secondlayer.count_params())
 		V3 = self.secondlayer(local_vCS)
-		print('num of params in secondlayer',self.secondlayer.count_params())
 
 		print('num of params in inputlayer post secondlayer',self.inputlayer.count_params())
-		# self.inputlayer.w3 = self.secondlayer.weights
-		print('num of params in inputlayer pre outpulayer',self.inputlayer.count_params())
+		# self.inputlayer.w3 = self.secondlayer.weights print('num of params in inputlayer pre outpulayer',self.inputlayer.count_params())
 		y = self.outputlayer(V3)
-		print('num of params in inputlayer post outpulayer',self.inputlayer.count_params())
 		# print('y is ',y)
-		self.y = y
-		# print('self.y in GINN_model call() is',self.y)
-		# print('self.y.shape in GINN_model call() is',self.y.shape)
+		self.y = y # print('self.y in GINN_model call() is',self.y)
+		# print('self.y.shape in JJNN_model call() is',self.y.shape)
 		# print('tf.executing_eagerly T or F',tf.executing_eagerly())
 		# tf.config.run_functions_eagerly(True)
-		print('num of params in inputlayer pre register y',self.inputlayer.count_params())
 		self.inputlayer.set_y(self.y)
-		print('num of params in inputlayer post register y',self.inputlayer.count_params())
 		y_prob_pred = tf.math.reduce_max(y, axis=2,keepdims= True)
 		# print('y_prob_pred is ',y_prob_pred)
 
 		# stub_pred_of_y = tf.squeeze(tf.slice(self.y,[0,0,0],[1,10,1]),axis=0) #very stub as pred is chosen from manual slicing. Pred shoud be selected from argamaxed-index!!	
 		# print('stub_pred_of_y is ',stub_pred_of_y )
-		print('num of params in inputlayer pre model return',self.inputlayer.count_params())
 		return y_prob_pred 
 
 
@@ -373,7 +364,7 @@ def main():
 	# print('data.inputs is ',data.inputs)
 	# print('type of data.inputs is ',type(data.inputs))
 	print(g_model.run_eagerly)
-	g_model.fit(data.inputs, epochs=3 )
+	g_model.fit(data.inputs, epochs = 1)
 	g_model.summary()
 	# g_model.model.layers[].get_weights()[0]
 	# print('g_model.inputlayer',g_model.inputlayer.get_weights())
