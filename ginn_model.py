@@ -180,35 +180,8 @@ class GINN_inputLayer(layers.Layer):
 			sum_of_prod_of_delta_k_2_star_and_z_k += np.multiply(delta_2_j[k], self.Z[j][k]) #z_j = self.z[j]
 			# print('sum_of_var is ',sum_of_prod_of_delta_k_2_star_and_z_k)
 
-		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k / self.batch_size # Denominator is stub. Intention is to take average by Total N.
-		
-		"""
-		# necesary values: inputlayer:u2_j, v_j,  y_j^CS, label, W3, 
-		grad_wk2 = np.array([0.005]) # stub
-		"""
-		# necesary values: inputlayer:u2_j, v_j,  y_j^CS, label, W3, 
-		# for j in range(self.Omega_m):
-			# d_j =  (0,1)^T if label_j = true; otherwise: (1,0)^T 
-			# u_j2 = u2_j # = tanh^{-1}(v_j^CS)
-			# u_j2_grad = 1 - (u_j2 ^2)
-			# u_j3 = W3 * v_j^CS # stub
-			# delata_j4 = y_j - d_j  # y_j := softmax(W4 * tanh(W3 * v_j^S) + b0) # stub
-			# H_jt = W4 * diag(u_j2_grad(u_j3)) * W3 # \in R^{2 x K)
-			# ...
-		# """
+		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k / self.batch_size 
 		return grad_wk2
-
-	# def get_weights_from_model_wrapper(self,modelwrapper):
-	# 	rcvd_weights = modelwrapper.model.layers[1].get_weights()[0]
-		# rcvd_layers = modelwrapper.model.layers[1].get_weights()[0]# this will get error:
-		# Cannot get value inside Tensorflow graph function.
- 
-		return rcvd_weights
-		# return self.weights 
-	#def create_H_star_j_t(self,H_j_t,H_star_j_t):
-	#	print('funciton THURU')
-	#	func1 = tf.add(4,5) 
-	#	return func1() 
 
 	def tanh_derivative(self, x):
 		y = 1-(np.tanh(x))**2
@@ -233,10 +206,8 @@ class GINN_inputLayer(layers.Layer):
 		self.data = self.model.model.data
 	
 	def set_y(self, y):
-		# print('y is', y)
 		# print('tf.executing_eagerly in the function T or F',tf.executing_eagerly())
 		self.y = y
-		# print('Post config y is',y)
 	
 
 class GINN_model(keras.Model):
@@ -248,47 +219,22 @@ class GINN_model(keras.Model):
 		# print('is eager in GINN_model build',tf.executing_eagerly())
 		self.inputlayer = GINN_inputLayer(self.data.W,units = 20,il_batch_input_shape= (10,1,915))#stub
 		self.K = self.inputlayer.K
-		self.K2 = self.K*2 # stub AR COMMENT: two edges from Concept layer to Context. See Fig 1 of Ito et al.(2020)
+		self.K2 = self.K*2 # Edges from Concept layer to next layer. See Fig 1 of Ito et al.(2020)
 		self.secondlayer = layers.Dense(self.K2, activation="tanh",kernel_initializer='random_normal',use_bias = False,)
-		# print('initalized secondlyaer is', self.secondlayer.weights)
-		self.outputlayer = layers.Dense(2, activation='softmax') #stub 10 is cardinality of minibatch.
+		self.outputlayer = layers.Dense(2, activation='softmax') 
 		self.inputlayer.extract_vars(self)
-		# print('input_shape is ',input_shape)
-		# super(GINN_model, self).build(input_shape)
-	
+		# super(GINN_model, self).build(input_shape) #Not certain if insntantiating the parenct class,i.e., keras.Model, is desirable
 	
 	def call(self, inputs): # inputs = v^{BOW}_j
-		# print('model.input.shape=', inputs.shape)
-		# print('model.input[1]=', inputs[1])
-		# print('model.input[1][0]=', inputs[1][0])
-		# print('type of model.input=', type(inputs))
-		# print('inputs',inputs)
 		# print('is eager in GINN_model call',tf.executing_eagerly())
-		vCS = self.inputlayer(inputs) # very stub
-		print('num of params in inputlayer',self.inputlayer.count_params())
-		# vCS = tf.expand_dims(vCS,axis=0)
-		# print('pre-concatenation vCS is ',vCS)
-		# vCS = tf.concat(vCS,axis= 0 )
-		# print('post-concatenation vCS is ' ,vCS)
+		vCS = self.inputlayer(inputs) 
+		#adjust the size for next layer input.
 		local_vCS = tf.expand_dims(vCS,axis=1)
-		# print('post-expand_dims vCS is ' ,vCS)
-		# print('num of params in secondlayer',self.secondlayer.count_params())
 		V3 = self.secondlayer(local_vCS)
-
-		print('num of params in inputlayer post secondlayer',self.inputlayer.count_params())
-		# self.inputlayer.w3 = self.secondlayer.weights print('num of params in inputlayer pre outpulayer',self.inputlayer.count_params())
 		y = self.outputlayer(V3)
-		# print('y is ',y)
-		self.y = y # print('self.y in GINN_model call() is',self.y)
-		# print('self.y.shape in JJNN_model call() is',self.y.shape)
-		# print('tf.executing_eagerly T or F',tf.executing_eagerly())
-		# tf.config.run_functions_eagerly(True)
+		self.y = y 
 		self.inputlayer.set_y(self.y)
 		y_prob_pred = tf.math.reduce_max(y, axis=2,keepdims= True)
-		# print('y_prob_pred is ',y_prob_pred)
-
-		# stub_pred_of_y = tf.squeeze(tf.slice(self.y,[0,0,0],[1,10,1]),axis=0) #very stub as pred is chosen from manual slicing. Pred shoud be selected from argamaxed-index!!	
-		# print('stub_pred_of_y is ',stub_pred_of_y )
 		return y_prob_pred 
 
 
@@ -305,14 +251,9 @@ class InputData(object):
 		#importing training_data(i.e. vbow) 
 		with open('data/training_data.pkl', 'rb') as fin:
 			self.training_data = pickle.load(fin)
-		#print('len(training_data)=', len(self.training_data)) # =56
-		t0 = self.training_data[0]
 		#importing label (positive = 1, negative = 0) 
 		with open('data/labels.pkl', 'rb') as fin:
 			self.labels = pickle.load(fin)
-		#print('len(labels)=',len(self.labels)) # =56
-		#print('labels=',self.labels)
-		
 		print('===End Reading Pickles==')
 	
 	def preprocess_input(self):
@@ -324,24 +265,14 @@ class InputData(object):
 		data_intermediatelist = []
 		for cnt in range(len(preprocessed_training_data)):
 			di = preprocessed_training_data[cnt][:].tolist()
-			#data_intermediatelist.append(di)
 			data_intermediatelist.append(sum(di,[])) # flatten
-		# print('data_intermediatelist[0]=', data_intermediatelist[0])
-		self.data_frequencies_All_data = data_intermediatelist
+		self.data_frequencies_All_data = data_intermediatelist #Store data for invocation in input lyaer.
 		data_frequencies = tf.expand_dims(tf.constant(data_intermediatelist,dtype = 'float32'),axis= 1) #expand dim at axis 1 to enable future propergation among layers.
-
 		self.x = data_frequencies
-		# print('self.x is ',self.x)
 		# self.x = tf.expand_dims(self.x,axis =2) #Adding dummy dimension for future preprocessing spefically fro Binary cross entropy and its argument 'reduction=tf.keras.losses.Reduction.NONE'.
-		# print('self.x is ',self.x)
-		
-		#self.frequencies = tf.ragged.constant(self.preprocessed_input_data, dtype='float32')	
 
 		#2.Preprocess label
 		self.formatted_labels=tf.expand_dims(tf.constant(self.labels[:].tolist(),dtype= 'float32'),axis=1)
-		# print(self.x)
-		# print(self.formatted_labels)
-		#print('self.formatted_labels=', self.formatted_labels)
 		self.inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(10
 		,drop_remainder= True)
 		# print('top.input=', self.inputs)
@@ -352,7 +283,6 @@ def output_to_txt_file(f):
 		# os.system('script test.txt')
 		print('start now')
 		f()
-
 	return log 
 	
 
@@ -361,18 +291,9 @@ def main():
 	data = InputData()
 	g_model = GINN_model(data)
 	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
-	# print('data.inputs is ',data.inputs)
-	# print('type of data.inputs is ',type(data.inputs))
 	print(g_model.run_eagerly)
 	g_model.fit(data.inputs, epochs = 1)
 	g_model.summary()
-	# g_model.model.layers[].get_weights()[0]
-	# print('g_model.inputlayer',g_model.inputlayer.get_weights())
-	# test_weights = g_model.secondlayer.weights
-	# print(test_weights) 
-	# run test 
-	#result= g_model.predict(sample_x)
-	#print(result)
 
 main()
 
