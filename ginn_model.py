@@ -12,8 +12,6 @@ from tensorflow.python.keras.backend import dtype
 #from tensorflow.python.keras.engine import data_adapter
 import pickle
 #from tensorflow.keras.backend import eval
-import random
-import os
 # tf.compat.v1.disable_eager_execution()
 
 class Model_wrapper(object):
@@ -45,19 +43,9 @@ class GINN_inputLayer(layers.Layer):
 		self.flattened_W_tfv = [tf.Variable(i,trainable=True,dtype='float32') for i in self.flattened_W] 
 		# print(self.flattened_W_tfv)
 		super(GINN_inputLayer, self).build(input_shape)
-		
-		# for w in self.Weights: # register trainable variables
-		# 	self.W.append(tf.Variable(w.tolist(), trainable=True, dtype='float32'))
-		# init_array =  np.zeros((2,self.K))
-		# self.H_star_j_t =tf.Variable(init_array,dtype='float32',trainable=False) super(GINN_inputLayer, self).build(input_shape) print('is eager in build',tf.executing_eagerly())
 
 	def call(self, inputs):
-		# print('inputs in call is ',inputs)
 		# print('is eager in call',tf.executing_eagerly())
-		# print('self.K is ',self.K)
-		# print('self.n is ',self.n)
-		# print('self.flattened_W is ',self.flattened_W)
-		# print('YOU ARE IN call of input_layer ')
 		self.vCS = []
 		self.Z = [] # moved here; taka, Mar/10
 		self.u2 = [] # moved here; taka, Mar/10
@@ -73,20 +61,13 @@ class GINN_inputLayer(layers.Layer):
 	@tf.custom_gradient
 	def GINN_op(self,*x):
 		# x is frequencies, K is number of cluster, n is a container includes n_k, falltened_W is tf.Variables) 
-		# Creating forward pass66661
-		# self.Z = []
-		# self.u2 = []
-		# self.vCS = []#need to write this outside GINN_op 20220307 AR
-		# for j in range(self.batch_size): #x.shape[0]represents batch size, be consistent!
-		# 	xs = x[j][0][:]
+		# Creating forward pass
+		# print('is eager in custom_gradient',tf.executing_eagerly())
 		xs = x 
 		ws = []
 		z_j = []
 		k0 = 0
-		# print('is eager in custom_gradient',tf.executing_eagerly())
-		# print('K is', K)
 		for k in range(self.K):
-			# is same as self.K which represents number of cluster.
 			k1 = k0 + self.n[k]
 			z_k = xs[k0:k1]
 			z_j.append(z_k)
@@ -95,38 +76,22 @@ class GINN_inputLayer(layers.Layer):
 			k0 = k1
 		self.Z.append(z_j)
 		u2_j = tf.concat(ws,axis=0) # you can use this in algo1()
-		# print('u2_j =', u2_j)
 		self.u2.append(u2_j)
 		vCS_j = tf.keras.activations.tanh(u2_j)
-		# print('vCS_j is',vCS_j)
 		# Creating backward pass.
 		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
-			# inner_list=[]
-			grad_xs = [tf.constant(1,dtype='float32') for _ in range(915)]#stub
-			# grad_xs = [tf.constant(inner_list)] # listize grad_xs as stated in tf.custom_gradient documentation. 
-			# print('grad_xs is ',grad_xs)
-			# print('upstream is ',upstream)
+			grad_xs = [tf.constant(1,dtype='float32') for _ in range(len(variables))]#stub
 			dy_dws = []
 			grad_vars = []  # To store gradients of passed variables
 			for k in range(self.K):
 				dy_dw =  self.algo1(k) #change variables[k]　to self.w[k]
 				dy_dws.append(dy_dw)
-				#fallaten dy_dws to store into grad_vars
+			#fallaten dy_dws to store into grad_vars
 			intermediate_grad_vars = [tf.constant(item, dtype='float32') for i in dy_dws for item in i]
-			# grad_vars = intermediate_grad_vars
-			# print('end of calc here?')
-			# grad_vars = [tf.constant(0.001,dtype='float32') for _ in range(915)]#stub
 			grad_vars = intermediate_grad_vars 
-			#May be lisitze grad_vars as the document says grad_vars is is a list<Tensor>.
 			return grad_xs, grad_vars
-		# print(self.vCS)
-		# print(grad_GINN_op)
-		# print(self.count_params())
 		return vCS_j, grad_GINN_op
-
-	
 	def algo1(self, k): #Implementing Algorithm 1 of Ito et al.(2020), pp.434
-		# print('YOU ARE IN ALGO 1')
 		# print('is eager in algo1',tf.executing_eagerly())
 		# update self.W[k] by reading document j whose polarity is b_j 
 		# j : document number
@@ -137,29 +102,21 @@ class GINN_inputLayer(layers.Layer):
 		# z^k_j := (z^k_{j,1}, ... z^k_{j,n(k)) (1 x n(k))
 		sum_of_prod_of_delta_k_2_star_and_z_k = 0 #sum of product of delta_k_2_star_and z_k ,i.e., frequency, of doc j. See line 17 of Algorithm1
 		for j in range(self.batch_size): #self.batch_size == the cardinality of Omega_m
-			# data = InputData() #stub 
 			d_j = self.transform_label_to_matrix(self.data.labels[j])
-			# print(d_j)
 			# assert type(d_j) == numpy.ndarray 
 			y_j = self.y[j] # minibatch dimension already being considered here.
 			y_j_np = y_j.numpy()
 			y_j_T = np.squeeze(y_j_np,axis=0) #Change matrix to vector to be consistent with Algo1 notation.
-			# print('y_j_T is',y_j_T)
 			delta_j_4 = np.subtract(y_j_T,d_j)
-			# print('delta_j_4 is ',delta_j_4)
 			self.w3 = self.model.model.layers[1].get_weights()[0]
 			# print(tf.executing_eagerly())
 			self.w4 = self.model.model.layers[2].get_weights()[0]
-			# print('w3 is ', self.w3.shape, 'vCS.numpy() is ', self.vCS.numpy().shape)
 			vCS_j = self.vCS[j].numpy()
 			u3_j = np.matmul(self.w3.T, vCS_j)
-			# print('u3_j', u3_j)
 			derivative_f3 = self.tanh_derivative(u3_j)
 			diagonailized_var = np.diag(derivative_f3) 
-			# print('diagonailized_var.shape is ',diagonailized_var.shape)
 			matmuled_var = np.matmul(diagonailized_var, self.w3.T)
 			H_j_t = np.matmul(self.w4.T, matmuled_var)
-			
 			try: 
 				H_star_j_t
 			except UnboundLocalError:
@@ -172,14 +129,10 @@ class GINN_inputLayer(layers.Layer):
 					H_star_j_t[1][local_k] = H_j_t[1][local_k]
 				
 			RHS_of_delta_j_2 = np.matmul(H_star_j_t.T, delta_j_4)
-			
 			u2_j= self.u2[j].numpy()
-			# u2_j = np.expand_dims(u2_j_np,axis=1)
 			LHS_of_delta_j_2 = 1- (np.tanh(u2_j))**2
 			delta_2_j = np.multiply(LHS_of_delta_j_2,RHS_of_delta_j_2) # line 15 of Algorithm 1 in Ito et al.(2020), pp.434 
 			sum_of_prod_of_delta_k_2_star_and_z_k += np.multiply(delta_2_j[k], self.Z[j][k]) #z_j = self.z[j]
-			# print('sum_of_var is ',sum_of_prod_of_delta_k_2_star_and_z_k)
-
 		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k / self.batch_size 
 		return grad_wk2
 
@@ -190,11 +143,8 @@ class GINN_inputLayer(layers.Layer):
 	def transform_label_to_matrix(self, datalabel):
 		if datalabel[0]== 1:
 			d_j = np.array([0,1]).T #document is positive. 
-			# d_j = d_j.set_shape([2,1]) 
-			# print('d_j is positive')
 		elif datalabel[0] == 0:
 			d_j = np.array([1,0]).T #document is negative.
-			# print('d_j is negative')
 		else:
 			print('Error:label data given but the label is neither 1 nor 0.') 
 		return d_j 
@@ -237,10 +187,9 @@ class GINN_model(keras.Model):
 		y_prob_pred = tf.math.reduce_max(y, axis=2,keepdims= True)
 		return y_prob_pred 
 
-
-
 class InputData(object):
-	def __init__(self):
+	def __init__(self,batch_size = None):
+		self.batch_size = batch_size
 		self.read_pickles()
 		self.preprocess_input()
 	
@@ -273,8 +222,8 @@ class InputData(object):
 
 		#2.Preprocess label
 		self.formatted_labels=tf.expand_dims(tf.constant(self.labels[:].tolist(),dtype= 'float32'),axis=1)
-		self.inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(10
-		,drop_remainder= True)
+		self.inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(self.batch_size,drop_remainder= True)
+		
 		# print('top.input=', self.inputs)
 
 #ToDo write decorator to save output to .txt file
@@ -284,16 +233,16 @@ def output_to_txt_file(f):
 		print('start now')
 		f()
 	return log 
-	
 
 @output_to_txt_file
 def main():
-	data = InputData()
+	data = InputData(batch_size=10)
 	g_model = GINN_model(data)
 	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
 	print(g_model.run_eagerly)
 	g_model.fit(data.inputs, epochs = 1)
 	g_model.summary()
+	# print(g_model.inputlayer.weights)
 
 main()
 
