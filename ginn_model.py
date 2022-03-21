@@ -41,7 +41,9 @@ class GINN_inputLayer(layers.Layer):
 		self.processed_W = [k[0].flatten() for k in self.Weights]
 		self.flattened_W = np.concatenate(self.processed_W)
 		self.flattened_W_tfv = [tf.Variable(i,trainable=True,dtype='float32') for i in self.flattened_W] 
-		# print(self.flattened_W_tfv)
+		self.j_first = 0
+		self.j_last = self.batch_size
+
 		super(GINN_inputLayer, self).build(input_shape)
 
 	def call(self, inputs):
@@ -49,13 +51,24 @@ class GINN_inputLayer(layers.Layer):
 		self.vCS = []
 		self.Z = [] # moved here; taka, Mar/10
 		self.u2 = [] # moved here; taka, Mar/10
-		for j in range(self.batch_size): 
+		# if self.itertaion_num == []:
+		# 	self.j_first = 0
+		# 	self.j_last = self.batch_size
+
+		for j in range(self.j_first,self.j_last): 
 			All_data = self.data.data_frequencies_All_data
 			intermediate_xs = All_data[j] #STUB! YOU MUST TAKE BATCH DIMENSION INTO ACCOUNT!
 			xs = [float(x) for x in intermediate_xs]
 			params = xs
 			vCS = self.GINN_op(*params)
 			self.vCS.append(vCS)
+		if not self.j_last == self.data.lastrow_num_of_data:
+			self.j_first = self.j_last
+			self.j_last = self.j_last + self.batch_size
+		elif self.j_last == self.data.lastrow_num_of_data:
+			self.j_first = 0
+			self.j_last = self.batch_size
+			# pass #stub.. why does this work in the first place 2022/3/21
 		return self.vCS 
 
 	@tf.custom_gradient
@@ -80,7 +93,7 @@ class GINN_inputLayer(layers.Layer):
 		vCS_j = tf.keras.activations.tanh(u2_j)
 		# Creating backward pass.
 		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
-			grad_xs = [tf.constant(1,dtype='float32') for _ in range(len(variables))]#stub
+			grad_xs = [tf.constant(1,dtype='float32') for _ in range(len(variables))]
 			dy_dws = []
 			grad_vars = []  # To store gradients of passed variables
 			for k in range(self.K):
@@ -164,10 +177,13 @@ class GINN_model(keras.Model):
 	def __init__(self, data):
 		super(GINN_model, self).__init__()
 		self.data = data
+		self.data_d0 = self.data.batch_size
+		self.data_d1 = self.data.row_dimension
+		self.data_d2 = self.data.feature_dimension
 	
 	def build(self, input_shape):
 		# print('is eager in GINN_model build',tf.executing_eagerly())
-		self.inputlayer = GINN_inputLayer(self.data.W,units = 20,il_batch_input_shape= (10,1,915))#stub
+		self.inputlayer = GINN_inputLayer(self.data.W,units = len(self.data.W),il_batch_input_shape= (self.data_d0,self.data_d1,self.data_d2))#len(self.data.W) should be as same as forthcoming self.K.
 		self.K = self.inputlayer.K
 		self.K2 = self.K*2 # Edges from Concept layer to next layer. See Fig 1 of Ito et al.(2020)
 		self.secondlayer = layers.Dense(self.K2, activation="tanh",kernel_initializer='random_normal',use_bias = False,)
@@ -188,8 +204,9 @@ class GINN_model(keras.Model):
 		return y_prob_pred 
 
 class InputData(object):
-	def __init__(self,batch_size = None):
+	def __init__(self,batch_size = None,isDropRemainder = True):
 		self.batch_size = batch_size
+		self.isRemainderTrue = isDropRemainder  
 		self.read_pickles()
 		self.preprocess_input()
 	
@@ -222,9 +239,18 @@ class InputData(object):
 
 		#2.Preprocess label
 		self.formatted_labels=tf.expand_dims(tf.constant(self.labels[:].tolist(),dtype= 'float32'),axis=1)
-		self.inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(self.batch_size,drop_remainder= True)
+		self.inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(self.batch_size,drop_remainder= self.isRemainderTrue)
+		self.row_dimension = len(self.x[0])
+		self.feature_dimension = len(self.x[0][0])
+		if self.isRemainderTrue == False:
+			self.lastrow_num_of_data = len(self.x)  #-1 means index offset
+		elif self.isRemainderTrue == True:
+			self.lastrow_num_of_data = (len(self.x) // self.batch_size) * self.batch_size  #-1 means index offset
+		#TODO take num of cluster and dimentions of data and add them as attributes of this call to use them 		
+
+
+		print('top.input=', self.inputs)
 		
-		# print('top.input=', self.inputs)
 
 #ToDo write decorator to save output to .txt file
 def output_to_txt_file(f):
@@ -236,11 +262,11 @@ def output_to_txt_file(f):
 
 @output_to_txt_file
 def main():
-	data = InputData(batch_size=10)
+	data = InputData(batch_size=10, isDropRemainder = True)
 	g_model = GINN_model(data)
 	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
 	print(g_model.run_eagerly)
-	g_model.fit(data.inputs, epochs = 1)
+	g_model.fit(data.inputs, epochs = 3)
 	g_model.summary()
 	# print(g_model.inputlayer.weights)
 
