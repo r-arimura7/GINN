@@ -115,7 +115,7 @@ class GINN_inputLayer(layers.Layer):
 		# z^k_j := (z^k_{j,1}, ... z^k_{j,n(k)) (1 x n(k))
 		sum_of_prod_of_delta_k_2_star_and_z_k = 0 #sum of product of delta_k_2_star_and z_k ,i.e., frequency, of doc j. See line 17 of Algorithm1
 		for j in range(self.batch_size): #self.batch_size == the cardinality of Omega_m
-			d_j = self.transform_label_to_matrix(self.data.labels[j])
+			d_j = self.transform_label_to_matrix(self.data.labels_train[j]) #RECONSIDER this... 
 			# assert type(d_j) == numpy.ndarray 
 			y_j = self.y[j] # minibatch dimension already being considered here.
 			y_j_np = y_j.numpy()
@@ -204,30 +204,46 @@ class GINN_model(keras.Model):
 		return y_prob_pred 
 
 class InputData(object):
-	def __init__(self,batch_size = None,isDropRemainder = True):
+	def __init__(self,batch_size = None,isDropRemainder = True, data_segment = 'train'):
 		self.batch_size = batch_size
 		self.isRemainderTrue = isDropRemainder  
 		self.read_pickles()
-		self.train_data = self.preprocess_input() # write 2 arguments for train data and labels.
+		self.test_input = self.preprocess_input(data_segment= 'test') # run test first in this line 
+		self.train_input = self.preprocess_input(data_segment= 'training') # run after self.test_input has been created
 	
 	def read_pickles(self):
-		#importing wegiht 
+		#import wegiht 
 		with open('data/test_W.pkl', 'rb') as fin:
 			self.W = pickle.load(fin)
-		#importing training_data(i.e. vbow) 
+		#import training_data(i.e. vbow) 
 		with open('data/0_input_data.pkl', 'rb') as fin:
 			self.training_data = pickle.load(fin)
-		#importing label (positive = 1, negative = 0) 
+		#import test_data
+		with open('data/1_input_data.pkl', 'rb') as fin:
+			self.test_data = pickle.load(fin)
+		#import label for test data (positive = 1, negative = 0) 
 		with open('data/0_labels.pkl', 'rb') as fin:
-			self.labels = pickle.load(fin)
+			self.labels_train = pickle.load(fin)
+		#import label for test data (positive = 1, negative = 0) 
+		with open('data/1_labels.pkl', 'rb') as fin:
+			self.labels_test = pickle.load(fin)
+
+
 		print('===End Reading Pickles==')
 	
-	def preprocess_input(self):
+	def preprocess_input(self,data_segment = 'training'):
 		"""
 		change numpy ndarray training_data AND labels to tf.data.Dataset data.
 		"""
+		if data_segment == 'training':
+			data = self.training_data
+			labels = self.labels_train
+		elif data_segment =='test':
+			data = self.test_data
+			labels = self.labels_test
+		
 		#1.Preprocess training data
-		preprocessed_training_data = [x for x in self.training_data ]
+		preprocessed_training_data = [x for x in data ]
 		data_intermediatelist = []
 		for cnt in range(len(preprocessed_training_data)):
 			di = preprocessed_training_data[cnt][:].tolist()
@@ -238,7 +254,7 @@ class InputData(object):
 		# self.x = tf.expand_dims(self.x,axis =2) #Adding dummy dimension for future preprocessing spefically fro Binary cross entropy and its argument 'reduction=tf.keras.losses.Reduction.NONE'.
 
 		#2.Preprocess label
-		self.formatted_labels=tf.expand_dims(tf.constant(self.labels[:].tolist(),dtype= 'float32'),axis=1)
+		self.formatted_labels=tf.expand_dims(tf.constant(labels[:].tolist(),dtype= 'float32'),axis=1)
 		
 		#3.Enter xs and ys to tf.data.Dataset
 		self.row_dimension = len(self.x[0])
@@ -265,12 +281,13 @@ def output_to_txt_file(f):
 
 @output_to_txt_file
 def main():
-	data = InputData(batch_size=1, isDropRemainder = True)
+	data = InputData(batch_size=1, isDropRemainder = True, data_segment= 'train')
 	g_model = GINN_model(data)
 	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy']) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
 	print(g_model.run_eagerly)
-	g_model.fit(data.train_data, epochs = 3)
+	g_model.fit(data.train_input, epochs = 3)
 	g_model.summary()
+	g_model.evaluate(data.test_input)
 	# print(g_model.inputlayer.weights)
 
 main()
