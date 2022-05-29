@@ -208,17 +208,17 @@ class InputData(object):
 		self.batch_size = batch_size
 		self.isRemainderTrue = isDropRemainder  
 		self.read_pickles()
-		self.preprocess_input()
+		self.preprocess_input() # write 2 arguments for train data and labels.
 	
 	def read_pickles(self):
 		#importing wegiht 
-		with open('data/s_mini_W.pkl', 'rb') as fin:
+		with open('data/test_W.pkl', 'rb') as fin:
 			self.W = pickle.load(fin)
 		#importing training_data(i.e. vbow) 
-		with open('data/s_mini_training_data.pkl', 'rb') as fin:
+		with open('data/0_input_data.pkl', 'rb') as fin:
 			self.training_data = pickle.load(fin)
 		#importing label (positive = 1, negative = 0) 
-		with open('data/s_mini_labels.pkl', 'rb') as fin:
+		with open('data/0_labels.pkl', 'rb') as fin:
 			self.labels = pickle.load(fin)
 		print('===End Reading Pickles==')
 	
@@ -239,6 +239,8 @@ class InputData(object):
 
 		#2.Preprocess label
 		self.formatted_labels=tf.expand_dims(tf.constant(self.labels[:].tolist(),dtype= 'float32'),axis=1)
+		
+		#3.Enter xs and ys to tf.data.Dataset
 		self.inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(self.batch_size,drop_remainder= self.isRemainderTrue)
 		self.row_dimension = len(self.x[0])
 		self.feature_dimension = len(self.x[0][0])
@@ -262,7 +264,7 @@ def output_to_txt_file(f):
 
 @output_to_txt_file
 def main():
-	data = InputData(batch_size=10, isDropRemainder = True)
+	data = InputData(batch_size=1, isDropRemainder = True)
 	g_model = GINN_model(data)
 	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy']) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
 	print(g_model.run_eagerly)
