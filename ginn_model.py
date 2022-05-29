@@ -208,7 +208,7 @@ class InputData(object):
 		self.batch_size = batch_size
 		self.isRemainderTrue = isDropRemainder  
 		self.read_pickles()
-		self.preprocess_input() # write 2 arguments for train data and labels.
+		self.train_data = self.preprocess_input() # write 2 arguments for train data and labels.
 	
 	def read_pickles(self):
 		#importing wegiht 
@@ -241,7 +241,6 @@ class InputData(object):
 		self.formatted_labels=tf.expand_dims(tf.constant(self.labels[:].tolist(),dtype= 'float32'),axis=1)
 		
 		#3.Enter xs and ys to tf.data.Dataset
-		self.inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(self.batch_size,drop_remainder= self.isRemainderTrue)
 		self.row_dimension = len(self.x[0])
 		self.feature_dimension = len(self.x[0][0])
 		if self.isRemainderTrue == False:
@@ -250,8 +249,10 @@ class InputData(object):
 			self.lastrow_num_of_data = (len(self.x) // self.batch_size) * self.batch_size  #-1 means index offset
 		#TODO take num of cluster and dimentions of data and add them as attributes of this call to use them 		
 
+		inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(self.batch_size,drop_remainder= self.isRemainderTrue)
+		# print('top.input=', self.inputs)
 
-		print('top.input=', self.inputs)
+		return inputs
 		
 
 #ToDo write decorator to save output to .txt file
@@ -268,7 +269,7 @@ def main():
 	g_model = GINN_model(data)
 	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy']) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
 	print(g_model.run_eagerly)
-	g_model.fit(data.inputs, epochs = 3)
+	g_model.fit(data.train_data, epochs = 3)
 	g_model.summary()
 	# print(g_model.inputlayer.weights)
 
