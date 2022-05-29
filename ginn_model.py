@@ -64,7 +64,7 @@ class GINN_inputLayer(layers.Layer):
 			self.vCS.append(vCS)
 		if not self.j_last == self.data.lastrow_num_of_data:
 			self.j_first = self.j_last
-			self.j_last = self.j_last + self.batch_size
+			self.j_last += self.batch_size
 		elif self.j_last == self.data.lastrow_num_of_data:
 			self.j_first = 0
 			self.j_last = self.batch_size
@@ -212,13 +212,13 @@ class InputData(object):
 	
 	def read_pickles(self):
 		#importing wegiht 
-		with open('data/W.pkl', 'rb') as fin:
+		with open('data/mini_W.pkl', 'rb') as fin:
 			self.W = pickle.load(fin)
 		#importing training_data(i.e. vbow) 
-		with open('data/training_data.pkl', 'rb') as fin:
+		with open('data/mini_training_data.pkl', 'rb') as fin:
 			self.training_data = pickle.load(fin)
 		#importing label (positive = 1, negative = 0) 
-		with open('data/labels.pkl', 'rb') as fin:
+		with open('data/mini_labels.pkl', 'rb') as fin:
 			self.labels = pickle.load(fin)
 		print('===End Reading Pickles==')
 	
