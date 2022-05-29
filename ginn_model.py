@@ -212,13 +212,13 @@ class InputData(object):
 	
 	def read_pickles(self):
 		#importing wegiht 
-		with open('data/mini_W.pkl', 'rb') as fin:
+		with open('data/s_mini_W.pkl', 'rb') as fin:
 			self.W = pickle.load(fin)
 		#importing training_data(i.e. vbow) 
-		with open('data/mini_training_data.pkl', 'rb') as fin:
+		with open('data/s_mini_training_data.pkl', 'rb') as fin:
 			self.training_data = pickle.load(fin)
 		#importing label (positive = 1, negative = 0) 
-		with open('data/mini_labels.pkl', 'rb') as fin:
+		with open('data/s_mini_labels.pkl', 'rb') as fin:
 			self.labels = pickle.load(fin)
 		print('===End Reading Pickles==')
 	
@@ -264,7 +264,7 @@ def output_to_txt_file(f):
 def main():
 	data = InputData(batch_size=10, isDropRemainder = True)
 	g_model = GINN_model(data)
-	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
+	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy']) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
 	print(g_model.run_eagerly)
 	g_model.fit(data.inputs, epochs = 3)
 	g_model.summary()
