@@ -210,24 +210,31 @@ class InputData(object):
 		self.isRemainderTrue = isDropRemainder  
 		self.read_pickles()
 		self.test_input = self.preprocess_input(data_segment= 'test') # run test first in this line 
+		self.validation_input = self.preprocess_input(data_segment= 'validation') # run test first in this line 
 		self.train_input = self.preprocess_input(data_segment= 'training') # run after self.test_input has been created
 	
 	def read_pickles(self):
-		#import wegiht 
-		with open('data/test_W.pkl', 'rb') as fin:
+		#import wegiht CONSIDER importing form test, validation and training folder and listize each instance for future iteration for k-fold  
+		with open('data/data20220611_01/W.pkl', 'rb') as fin:
 			self.W = pickle.load(fin)
 		#import training_data(i.e. vbow) 
-		with open('data/0_input_data.pkl', 'rb') as fin:
+		with open('data/data20220611_01/train_0_input_data.pkl', 'rb') as fin:
 			self.training_data = pickle.load(fin)
 		#import test_data
-		with open('data/1_input_data.pkl', 'rb') as fin:
+		with open('data/data20220611_01/test_0_input_data.pkl', 'rb') as fin:
 			self.test_data = pickle.load(fin)
-		#import label for test data (positive = 1, negative = 0) 
-		with open('data/0_labels.pkl', 'rb') as fin:
+		#import validation_data
+		with open('data/data20220611_01/validation_0_input_data.pkl', 'rb') as fin:
+			self.validation_data = pickle.load(fin)
+		#import label for train data (positive = 1, negative = 0) 
+		with open('data/data20220611_01/train_0_labels.pkl', 'rb') as fin:
 			self.labels_train = pickle.load(fin)
 		#import label for test data (positive = 1, negative = 0) 
-		with open('data/1_labels.pkl', 'rb') as fin:
+		with open('data/data20220611_01/test_0_labels.pkl', 'rb') as fin:
 			self.labels_test = pickle.load(fin)
+		#import label for validation data (positive = 1, negative = 0) 
+		with open('data/data20220611_01/validation_0_labels.pkl', 'rb') as fin:
+			self.labels_validation = pickle.load(fin)
 
 
 		print('===End Reading Pickles==')
@@ -242,6 +249,9 @@ class InputData(object):
 		elif data_segment =='test':
 			data = self.test_data
 			labels = self.labels_test
+		elif data_segment =='validation':
+			data = self.validation_data
+			labels = self.labels_validation
 		
 		#1.Preprocess training data
 		preprocessed_training_data = [x for x in data ]
@@ -282,26 +292,26 @@ def output_to_txt_file(f):
 
 @output_to_txt_file
 def main():
-	data = InputData(batch_size=1, isDropRemainder = True, data_segment= 'train') 
+	data = InputData(batch_size=3, isDropRemainder = True ) 
 	g_model = GINN_model(data)
 	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy']) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
 	print(g_model.run_eagerly)
-	g_model.fit(data.train_input, epochs = 3)
-	g_model.summary()
-	g_model.evaluate(data.test_input)
-
+	g_model.fit(data.train_input, epochs = 3)#callback epoch g_model.summary()
+	g_model.evaluate(data.validation_input)
+	predection = g_model.predict(data.test_input,batch_size = 3)
+	print('predction is ',predection)
+	# y_true = data.test_input[1]
+	# output = g_model(data.validation_input)
+	# output
 	#STUB
-	metric = tfa.metrics.F1Score(num_classes=3, threshold=0.5)
-	y_true = np.array([[1, 1, 1],
-                   	[1, 0, 0],
-                   	[1, 1, 0]], np.int32)
-	y_pred = np.array([[0.2, 0.6, 0.7],
-                   	[0.2, 0.6, 0.6],
-                   	[0.6, 0.8, 0.0]], np.float32)
-	metric.update_state(y_true, y_pred)
-	result = metric.result()
-	print(result.numpy())
-
+	# metric = tfa.metrics.F1Score(num_classes=3,  threshold=0.5)
+	# y_true = np.array([[1, 1, 1],
+    #                	], np.int32)
+	# y_pred = np.array([[0.2, 0.6, 0.7],
+    #                	], np.float32)
+	# metric.update_state(y_true, y_pred)
+	# result = metric.result()
+	# print(result.numpy()) 
 	# print(g_model.inputlayer.weights)
 
 main()
