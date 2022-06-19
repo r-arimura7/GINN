@@ -181,6 +181,7 @@ class GINN_model(keras.Model):
 		self.data_d0 = self.data.batch_size
 		self.data_d1 = self.data.row_dimension
 		self.data_d2 = self.data.feature_dimension
+		self.classwise_prediction_list = []
 	
 	def build(self, input_shape):
 		# print('is eager in GINN_model build',tf.executing_eagerly())
@@ -192,7 +193,11 @@ class GINN_model(keras.Model):
 		self.inputlayer.extract_vars(self)
 		# super(GINN_model, self).build(input_shape) #Not certain if insntantiating the parenct class,i.e., keras.Model, is desirable
 	
-	def call(self, inputs): # inputs = v^{BOW}_j
+	def call(self, inputs,test_data= False): # inputs = v^{BOW}_j
+		if test_data == True:
+			print('test data now')
+			self.prediction_for_test =[]
+		# self.inner_list = []
 		# print('is eager in GINN_model call',tf.executing_eagerly())
 		vCS = self.inputlayer(inputs) 
 		#adjust the size for next layer input.
@@ -201,6 +206,12 @@ class GINN_model(keras.Model):
 		y = self.outputlayer(V3)
 		self.y = y 
 		self.inputlayer.set_y(self.y)
+		# self.classwise_prediction_list.append(y)
+		try:
+			self.prediction_for_test.append(y)
+		except:
+			pass
+		# self.inner_list.append(y)
 		y_prob_pred = tf.math.reduce_max(y, axis=2,keepdims= True)
 		return y_prob_pred 
 
@@ -218,22 +229,22 @@ class InputData(object):
 		with open('data/data20220611_01/W.pkl', 'rb') as fin:
 			self.W = pickle.load(fin)
 		#import training_data(i.e. vbow) 
-		with open('data/data20220611_01/train_0_input_data.pkl', 'rb') as fin:
+		with open('data/data20220611_01/train_1_input_data.pkl', 'rb') as fin:
 			self.training_data = pickle.load(fin)
 		#import test_data
-		with open('data/data20220611_01/test_0_input_data.pkl', 'rb') as fin:
+		with open('data/data20220611_01/test_1_input_data.pkl', 'rb') as fin:
 			self.test_data = pickle.load(fin)
 		#import validation_data
-		with open('data/data20220611_01/validation_0_input_data.pkl', 'rb') as fin:
+		with open('data/data20220611_01/validation_1_input_data.pkl', 'rb') as fin:
 			self.validation_data = pickle.load(fin)
 		#import label for train data (positive = 1, negative = 0) 
-		with open('data/data20220611_01/train_0_labels.pkl', 'rb') as fin:
+		with open('data/data20220611_01/train_1_labels.pkl', 'rb') as fin:
 			self.labels_train = pickle.load(fin)
 		#import label for test data (positive = 1, negative = 0) 
-		with open('data/data20220611_01/test_0_labels.pkl', 'rb') as fin:
+		with open('data/data20220611_01/test_1_labels.pkl', 'rb') as fin:
 			self.labels_test = pickle.load(fin)
 		#import label for validation data (positive = 1, negative = 0) 
-		with open('data/data20220611_01/validation_0_labels.pkl', 'rb') as fin:
+		with open('data/data20220611_01/validation_1_labels.pkl', 'rb') as fin:
 			self.labels_validation = pickle.load(fin)
 
 
@@ -249,6 +260,7 @@ class InputData(object):
 		elif data_segment =='test':
 			data = self.test_data
 			labels = self.labels_test
+			print('len of test_data',len(self.test_data))
 		elif data_segment =='validation':
 			data = self.validation_data
 			labels = self.labels_validation
@@ -292,27 +304,40 @@ def output_to_txt_file(f):
 
 @output_to_txt_file
 def main():
-	data = InputData(batch_size=3, isDropRemainder = True ) 
+	data = InputData(batch_size=2, isDropRemainder = True ) 
 	g_model = GINN_model(data)
 	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy']) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
 	print(g_model.run_eagerly)
+	print('--training--')
 	g_model.fit(data.train_input, epochs = 3)#callback epoch g_model.summary()
-	g_model.evaluate(data.validation_input)
-	predection = g_model.predict(data.test_input,batch_size = 3)
+	print('--evaluating--')
+	output=g_model.evaluate(data.validation_input)
+	print('output is ',output)
+	predection = g_model(data.test_input,test_data = True)
+	print(g_model.y)
 	print('predction is ',predection)
+	# print('outer list is ',g_model.classwise_prediction_list)
+	# print('len of outer list is ',len(g_model.classwise_prediction_list))
+	# print('inner list is ',g_model.inner_list)
+	# print('len of inner list is ',len(g_model.inner_list))
+	# classwise_prediction_result = g_model.classwise_prediction_list[-1*len(data.labels_test):]#get probability for test data
+	classwise_prediction_result = g_model.prediction_for_test#get probability for test data
+	# print('classwise_predcition result is ',classwise_prediction_result)	
 	# y_true = data.test_input[1]
 	# output = g_model(data.validation_input)
-	# output
+	# print(output)
 	#STUB
-	# metric = tfa.metrics.F1Score(num_classes=3,  threshold=0.5)
-	# y_true = np.array([[1, 1, 1],
-    #                	], np.int32)
-	# y_pred = np.array([[0.2, 0.6, 0.7],
-    #                	], np.float32)
+	open_file = open('./buff/' + 'classwise_prediction.pkl','wb')
+	pickle.dump(classwise_prediction_result,open_file)
+	open_file = open('./buff/' + 'data_label_test.pkl','wb')
+	pickle.dump(data.labels_test,open_file)
+	# metric = tfa.metrics.F1Score(num_classes=2,  threshold=0.5)
+	# y_true = data.labels_test
+	# y_pred = classwise_prediction_result
 	# metric.update_state(y_true, y_pred)
 	# result = metric.result()
 	# print(result.numpy()) 
-	# print(g_model.inputlayer.weights)
+	# # print(g_model.inputlayer.weights)
 
 main()
 
