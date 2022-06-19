@@ -178,14 +178,14 @@ class GINN_model(keras.Model):
 	def __init__(self, data):
 		super(GINN_model, self).__init__()
 		self.data = data
-		self.data_d0 = self.data.batch_size
-		self.data_d1 = self.data.row_dimension
-		self.data_d2 = self.data.feature_dimension
+		self.data_d0 = self.data.num_of_elements_in_a_batch
+		# self.data_d1 = self.data.row_dimension
+		self.data_d1 = self.data.feature_dimension
 		self.classwise_prediction_list = []
 	
 	def build(self, input_shape):
 		# print('is eager in GINN_model build',tf.executing_eagerly())
-		self.inputlayer = GINN_inputLayer(self.data.W,units = len(self.data.W),il_batch_input_shape= (self.data_d0,self.data_d1,self.data_d2))#len(self.data.W) should be as same as forthcoming self.K.
+		self.inputlayer = GINN_inputLayer(self.data.W,units = len(self.data.W),il_batch_input_shape= (self.data_d0,self.data_d1))#len(self.data.W) should be as same as forthcoming self.K.
 		self.K = self.inputlayer.K
 		self.K2 = self.K*2 # Edges from Concept layer to next layer. See Fig 1 of Ito et al.(2020)
 		self.secondlayer = layers.Dense(self.K2, activation="tanh",kernel_initializer='random_normal',use_bias = False,)
@@ -200,9 +200,11 @@ class GINN_model(keras.Model):
 		# self.inner_list = []
 		# print('is eager in GINN_model call',tf.executing_eagerly())
 		vCS = self.inputlayer(inputs) 
+		localvCS = tuple(vCS)
 		#adjust the size for next layer input.
-		local_vCS = tf.expand_dims(vCS,axis=1)
-		V3 = self.secondlayer(local_vCS)
+		# local_vCS = tf.expand_dims(vCS,axis=1)
+		stub_matrix = np.arange(54882).reshape((18,3049))
+		V3 = self.secondlayer(stub_matrix)
 		y = self.outputlayer(V3)
 		self.y = y 
 		self.inputlayer.set_y(self.y)
@@ -212,7 +214,7 @@ class GINN_model(keras.Model):
 		except:
 			pass
 		# self.inner_list.append(y)
-		y_prob_pred = tf.math.reduce_max(y, axis=2,keepdims= True)
+		y_prob_pred = tf.math.reduce_max(y, axis=1,keepdims= True)
 		return y_prob_pred 
 
 class InputData(object):
@@ -280,15 +282,16 @@ class InputData(object):
 		self.formatted_labels=tf.expand_dims(tf.constant(labels[:].tolist(),dtype= 'float32'),axis=1)
 		
 		#3.Enter xs and ys to tf.data.Dataset
-		self.row_dimension = len(self.x[0])
-		self.feature_dimension = len(self.x[0][0])
+		self.row_dimension = len(self.x)
+		self.feature_dimension = len(self.x[0])
 		if self.isRemainderTrue == False:
 			self.lastrow_num_of_data = len(self.x)  #-1 means index offset
 		elif self.isRemainderTrue == True:
 			self.lastrow_num_of_data = (len(self.x) // self.batch_size) * self.batch_size  #-1 means index offset
 		#TODO take num of cluster and dimentions of data and add them as attributes of this call to use them 		
+		self.num_of_elements_in_a_batch = len(self.x)//self.batch_size
 
-		inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(self.batch_size,drop_remainder= self.isRemainderTrue)
+		inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(self.num_of_elements_in_a_batch,drop_remainder= self.isRemainderTrue)
 		# print('top.input=', self.inputs)
 
 		return inputs
