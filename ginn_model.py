@@ -327,6 +327,7 @@ def main():
 	# output = g_model(data.validation_input)
 	# print(output)
 	#STUB
+	#check comment on 330
 	open_file = open('./buff/' + 'classwise_prediction.pkl','wb')
 	pickle.dump(classwise_prediction_result,open_file)
 	open_file = open('./buff/' + 'data_label_test.pkl','wb')
