@@ -272,7 +272,7 @@ class InputData(object):
 			di = preprocessed_training_data[cnt][:].tolist()
 			data_intermediatelist.append(sum(di,[])) # flatten
 		self.data_frequencies_All_data = data_intermediatelist #Store data for invocation in input lyaer.
-		data_frequencies = tf.expand_dims(tf.constant(data_intermediatelist,dtype = 'float32'),axis= 1) #expand dim at axis 1 to enable future propergation among layers.
+		data_frequencies = tf.constant(data_intermediatelist,dtype = 'float32')
 		self.x = data_frequencies
 		# self.x = tf.expand_dims(self.x,axis =2) #Adding dummy dimension for future preprocessing spefically fro Binary cross entropy and its argument 'reduction=tf.keras.losses.Reduction.NONE'.
 
