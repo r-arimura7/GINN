@@ -62,14 +62,18 @@ class GINN_inputLayer(layers.Layer):
 			xs = [float(x) for x in intermediate_xs]
 			params = xs
 			vCS = self.GINN_op(*params)
-			self.vCS.append(vCS)
+			if j == 0:
+				local_vCS = np.expand_dims(vCS.numpy(),axis=0)
+			elif j != 0:
+				local_vCS = np.vstack((local_vCS,np.expand_dims(vCS.numpy(),axis=0)))
+			# self.vCS.append(vCS)
 		# if not self.j_last == self.data.lastrow_num_of_data:
 		# 	self.j_first = self.j_last
 		# 	self.j_last += self.batch_size
 		# elif self.j_last == self.data.lastrow_num_of_data:
 		# 	self.j_first = 0
 		# 	self.j_last = self.batch_size
-		return self.vCS 
+		return local_vCS 
 
 	@tf.custom_gradient
 	def GINN_op(self,*x):
@@ -199,20 +203,19 @@ class GINN_model(keras.Model):
 		# self.inner_list = []
 		# print('is eager in GINN_model call',tf.executing_eagerly())
 		vCS = self.inputlayer(inputs) 
-		localvCS = tuple(tuple(vCS))
+		# localvCS = tuple(tuple(vCS))
 		#adjust the size for next layer input.
 		# local_vCS = tf.expand_dims(vCS,axis=1)
-		stub_matrix = np.arange(54882).reshape((18,3049))
-		#2022/06/20 compare size of localvCS and stub_matrix, and make the former size as same as the latter.
-		V3 = self.secondlayer(localvCS)
+		# stub_matrix = np.arange(54882).reshape((18,3049))
+		V3 = self.secondlayer(vCS)
 		y = self.outputlayer(V3)
 		self.y = y 
 		self.inputlayer.set_y(self.y)
-		# self.classwise_prediction_list.append(y)
-		try:
-			self.prediction_for_test.append(y)
-		except:
-			pass
+		self.classwise_prediction_list.append(y)
+		# try:
+		# 	self.prediction_for_test.append(y)
+		# except:
+		# 	pass
 		# self.inner_list.append(y)
 		y_prob_pred = tf.math.reduce_max(y, axis=1,keepdims= True)
 		return y_prob_pred 
@@ -291,9 +294,13 @@ class InputData(object):
 		#TODO take num of cluster and dimentions of data and add them as attributes of this call to use them 		
 		self.num_of_elements_in_a_batch = len(self.x)//self.batch_size
 
-		inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(self.num_of_elements_in_a_batch,drop_remainder= self.isRemainderTrue)
-		# print('top.input=', self.inputs)
+		#drop_remainder should be true as the value of inputs.shape[0] should be valid.
+		if data_segment == 'training':
+			inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(self.num_of_elements_in_a_batch,drop_remainder= self.isRemainderTrue)
+		elif data_segment == 'validation' or 'test':
+			inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(len(self.x),drop_remainder=self.isRemainderTrue)
 
+	
 		return inputs
 		
 
@@ -312,20 +319,21 @@ def main():
 	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy']) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
 	print(g_model.run_eagerly)
 	print('--training--')
-	g_model.fit(data.train_input, epochs = 3)#callback epoch g_model.summary()
+	g_model.fit(data.train_input, epochs = 1)#callback epoch g_model.summary()
 	print('--evaluating--')
 	output=g_model.evaluate(data.validation_input)
 	print('output is ',output)
-	predection = g_model(data.test_input,test_data = True)
+	# predection = g_model(data.test_input,test_data = True)
+	prediction = g_model.predict(data.test_input)
 	print(g_model.y)
-	print('predction is ',predection)
+	print('predction is ',prediction)
 	# print('outer list is ',g_model.classwise_prediction_list)
 	# print('len of outer list is ',len(g_model.classwise_prediction_list))
 	# print('inner list is ',g_model.inner_list)
 	# print('len of inner list is ',len(g_model.inner_list))
 	# classwise_prediction_result = g_model.classwise_prediction_list[-1*len(data.labels_test):]#get probability for test data
-	classwise_prediction_result = g_model.prediction_for_test#get probability for test data
-	# print('classwise_predcition result is ',classwise_prediction_result)	
+	classwise_prediction_result = g_model.y#get probability for test data
+	print('classwise_predcition result is ',classwise_prediction_result)	
 	# y_true = data.test_input[1]
 	# output = g_model(data.validation_input)
 	# print(output)
@@ -341,7 +349,7 @@ def main():
 	# metric.update_state(y_true, y_pred)
 	# result = metric.result()
 	# print(result.numpy()) 
-	# # print(g_model.inputlayer.weights)
+	print('inputlayer weights are ',g_model.inputlayer.weights)
 
 main()
 
