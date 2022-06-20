@@ -56,20 +56,19 @@ class GINN_inputLayer(layers.Layer):
 		# 	self.j_first = 0
 		# 	self.j_last = self.batch_size
 
-		for j in range(self.j_first,self.j_last): 
+		for j in range(inputs.shape[0]): 
 			All_data = self.data.data_frequencies_All_data
-			intermediate_xs = All_data[j] #STUB! YOU MUST TAKE BATCH DIMENSION INTO ACCOUNT!
+			intermediate_xs = All_data[j] 
 			xs = [float(x) for x in intermediate_xs]
 			params = xs
 			vCS = self.GINN_op(*params)
 			self.vCS.append(vCS)
-		if not self.j_last == self.data.lastrow_num_of_data:
-			self.j_first = self.j_last
-			self.j_last += self.batch_size
-		elif self.j_last == self.data.lastrow_num_of_data:
-			self.j_first = 0
-			self.j_last = self.batch_size
-			# pass #stub.. why does this work in the first place 2022/3/21
+		# if not self.j_last == self.data.lastrow_num_of_data:
+		# 	self.j_first = self.j_last
+		# 	self.j_last += self.batch_size
+		# elif self.j_last == self.data.lastrow_num_of_data:
+		# 	self.j_first = 0
+		# 	self.j_last = self.batch_size
 		return self.vCS 
 
 	@tf.custom_gradient
@@ -200,11 +199,12 @@ class GINN_model(keras.Model):
 		# self.inner_list = []
 		# print('is eager in GINN_model call',tf.executing_eagerly())
 		vCS = self.inputlayer(inputs) 
-		localvCS = tuple(vCS)
+		localvCS = tuple(tuple(vCS))
 		#adjust the size for next layer input.
 		# local_vCS = tf.expand_dims(vCS,axis=1)
 		stub_matrix = np.arange(54882).reshape((18,3049))
-		V3 = self.secondlayer(stub_matrix)
+		#2022/06/20 compare size of localvCS and stub_matrix, and make the former size as same as the latter.
+		V3 = self.secondlayer(localvCS)
 		y = self.outputlayer(V3)
 		self.y = y 
 		self.inputlayer.set_y(self.y)
