@@ -49,7 +49,7 @@ class GINN_inputLayer(layers.Layer):
 
 	def call(self, inputs):
 		# print('is eager in call',tf.executing_eagerly())
-		self.vCS = []
+		# self.vCS = []
 		self.Z = [] # moved here; taka, Mar/10
 		self.u2 = [] # moved here; taka, Mar/10
 		# if self.itertaion_num == []:
@@ -57,15 +57,15 @@ class GINN_inputLayer(layers.Layer):
 		# 	self.j_last = self.batch_size
 
 		for j in range(inputs.shape[0]): 
-			All_data = self.data.data_frequencies_All_data
+			All_data =self.data.data_frequencies_All_data #inputs #Tweak around here ... 2022/06/21
 			intermediate_xs = All_data[j] 
 			xs = [float(x) for x in intermediate_xs]
 			params = xs
 			vCS = self.GINN_op(*params)
 			if j == 0:
-				local_vCS = np.expand_dims(vCS.numpy(),axis=0)
+				local_vCS = tf.expand_dims(vCS,axis=0)
 			elif j != 0:
-				local_vCS = np.vstack((local_vCS,np.expand_dims(vCS.numpy(),axis=0)))
+				local_vCS = tf.experimental.numpy.vstack((local_vCS,tf.expand_dims(vCS,axis=0)))
 			# self.vCS.append(vCS)
 		# if not self.j_last == self.data.lastrow_num_of_data:
 		# 	self.j_first = self.j_last
@@ -73,7 +73,8 @@ class GINN_inputLayer(layers.Layer):
 		# elif self.j_last == self.data.lastrow_num_of_data:
 		# 	self.j_first = 0
 		# 	self.j_last = self.batch_size
-		return local_vCS 
+		self.vCS = local_vCS
+		return self.vCS 
 
 	@tf.custom_gradient
 	def GINN_op(self,*x):
@@ -123,7 +124,8 @@ class GINN_inputLayer(layers.Layer):
 			# assert type(d_j) == numpy.ndarray 
 			y_j = self.y[j] # minibatch dimension already being considered here.
 			y_j_np = y_j.numpy()
-			y_j_T = np.squeeze(y_j_np,axis=0) #Change matrix to vector to be consistent with Algo1 notation.
+			y_j_T = y_j_np #stub. walking safe side.
+			# y_j_T = np.squeeze(y_j_np,axis=0) #Change matrix to vector to be consistent with Algo1 notation.
 			delta_j_4 = np.subtract(y_j_T,d_j)
 			self.w3 = self.model.model.layers[1].get_weights()[0]
 			# print(tf.executing_eagerly())
@@ -349,7 +351,7 @@ def main():
 	# metric.update_state(y_true, y_pred)
 	# result = metric.result()
 	# print(result.numpy()) 
-	print('inputlayer weights are ',g_model.inputlayer.weights)
+	# print('inputlayer weights are ',g_model.inputlayer.weights)
 
 main()
 
