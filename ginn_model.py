@@ -321,7 +321,7 @@ def main():
 	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy']) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
 	print(g_model.run_eagerly)
 	print('--training--')
-	g_model.fit(data.train_input, epochs = 1)#callback epoch g_model.summary()
+	g_model.fit(data.train_input, epochs = 3)#callback epoch g_model.summary()
 	print('--evaluating--')
 	output=g_model.evaluate(data.validation_input)
 	print('output is ',output)
@@ -351,7 +351,8 @@ def main():
 	# metric.update_state(y_true, y_pred)
 	# result = metric.result()
 	# print(result.numpy()) 
-	# print('inputlayer weights are ',g_model.inputlayer.weights)
+	print('inputlayer weights are ',g_model.inputlayer.weights)
+	g_model.summary()
 
 main()
 
