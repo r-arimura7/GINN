@@ -12,8 +12,12 @@ from tensorflow.python.keras.backend import dtype
 #from tensorflow.python.keras.engine import data_adapter
 import pickle
 import tensorflow_addons as tfa
+import os
 #from tensorflow.keras.backend import eval
 # tf.compat.v1.disable_eager_execution()
+#Setting constants as below
+DATA_FOLDER = './data/production'
+BUNDLE_FOLDER = '/bundle'
 
 class Model_wrapper(object):
 	def __init__(self, model):
@@ -301,10 +305,21 @@ class InputData(object):
 			inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(self.num_of_elements_in_a_batch,drop_remainder= self.isRemainderTrue)
 		elif data_segment == 'validation' or 'test':
 			inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(len(self.x),drop_remainder=self.isRemainderTrue)
-
 	
 		return inputs
 		
+class Fold(object):
+	pass
+
+class Main_Process(object):
+	def __init__(self,data_folder):
+		#data_folder should be a directory path without number of bundle where dat is sotred in k-foldwise. e.g., 'data/bundle' ; in this case k-foldwise data is stored in data/bundle0, data/bunlde1, ..., data/bundlek. Data should be preprocessed by Datapreprocess_summerV1.py
+		self.all_k_dataset = self.retrieve_dataset_files(data_folder) 
+
+	def retrieve_dataset_files(self,data_foler):
+		print(data_foler)
+		pass
+	
 
 #ToDo write decorator to save output to .txt file
 def output_to_txt_file(f):
@@ -325,34 +340,20 @@ def main():
 	print('--evaluating--')
 	output=g_model.evaluate(data.validation_input)
 	print('output is ',output)
-	# predection = g_model(data.test_input,test_data = True)
 	prediction = g_model.predict(data.test_input)
 	print(g_model.y)
 	print('predction is ',prediction)
-	# print('outer list is ',g_model.classwise_prediction_list)
-	# print('len of outer list is ',len(g_model.classwise_prediction_list))
-	# print('inner list is ',g_model.inner_list)
-	# print('len of inner list is ',len(g_model.inner_list))
-	# classwise_prediction_result = g_model.classwise_prediction_list[-1*len(data.labels_test):]#get probability for test data
 	classwise_prediction_result = g_model.y#get probability for test data
 	print('classwise_predcition result is ',classwise_prediction_result)	
-	# y_true = data.test_input[1]
-	# output = g_model(data.validation_input)
-	# print(output)
-	#STUB
-	#check comment on 330
 	open_file = open('./buff/' + 'classwise_prediction.pkl','wb')
 	pickle.dump(classwise_prediction_result,open_file)
 	open_file = open('./buff/' + 'data_label_test.pkl','wb')
 	pickle.dump(data.labels_test,open_file)
-	# metric = tfa.metrics.F1Score(num_classes=2,  threshold=0.5)
-	# y_true = data.labels_test
-	# y_pred = classwise_prediction_result
-	# metric.update_state(y_true, y_pred)
-	# result = metric.result()
-	# print(result.numpy()) 
 	print('inputlayer weights are ',g_model.inputlayer.weights)
 	g_model.summary()
 
-main()
+
+print(os.listdir(DATA_FOLDER))
+main = Main_Process(DATA_FOLDER+BUNDLE_FOLDER)
+# main()
 
