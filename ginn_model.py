@@ -61,7 +61,7 @@ class GINN_inputLayer(layers.Layer):
 		# 	self.j_last = self.batch_size
 
 		for j in range(inputs.shape[0]): 
-			All_data =self.data.data_frequencies_All_data #inputs #Tweak around here ... 2022/06/21
+			All_data =self.data.data_frequencies_All_data #ENSURE this process is valid in train and validation inputs 2022/06/29
 			intermediate_xs = All_data[j] 
 			xs = [float(x) for x in intermediate_xs]
 			params = xs
@@ -309,17 +309,36 @@ class InputData(object):
 		return inputs
 		
 class Fold(object):
-	pass
+	def __init__(self,filelist):
+		#filelist is a list of file name path
+		self.train_input_data 
+		self.train_labels 
+		self.validation_input_data
+		self.validation_labels
+		self.test_input_data
+		self.test_labels
+		self.W
 
 class Main_Process(object):
 	def __init__(self,data_folder):
-		#data_folder should be a directory path without number of bundle where dat is sotred in k-foldwise. e.g., 'data/bundle' ; in this case k-foldwise data is stored in data/bundle0, data/bunlde1, ..., data/bundlek. Data should be preprocessed by Datapreprocess_summerV1.py
+		#data_folder should be a directory path without number of bundle where data is sotred in k-foldwise. e.g., 'data/bundle' ; in this case k-foldwise data is stored in data/bundle0, data/bunlde1, ..., data/production/bundlek. Data should be preprocessed by Datapreprocess_summerV1.py. k = 5 is only considered for GINN.
 		self.all_k_dataset = self.retrieve_dataset_files(data_folder) 
 
-	def retrieve_dataset_files(self,data_foler):
-		print(data_foler)
+	def retrieve_dataset_files(self,data_folder):
+		whole_datafile_path = []
+		files_path_list = []
+		for i in range(5):
+			fileslist = os.listdir(data_folder+str(i))
+			fileslist.sort() #as a result order will be ['W_0.pkl', 'test_0_input_data.pkl', 'test_0_labels.pkl', 'train_0_input_data.pkl', 'train_0_labels.pkl', 'validation_0_input_data.pkl', 'validation_0_labels.pkl']
+			[files_path_list.append((data_folder+str(i)+'/'+fileslist[cnt])) for cnt in range(len(fileslist)) ]
+			whole_datafile_path.append(files_path_list)
+			files_path_list = []
+			# aFold = Fold(fileslist)			
+		return whole_datafile_path
+		
+	def preprocess_data(self):
+		#preprocess input data using InputData class
 		pass
-	
 
 #ToDo write decorator to save output to .txt file
 def output_to_txt_file(f):
