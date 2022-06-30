@@ -24,13 +24,15 @@ class Model_wrapper(object):
 		self.model = model
 
 class GINN_inputLayer(layers.Layer):
-	def __init__(self, Weights, units = None, il_batch_input_shape = None):
+	def __init__(self, Weights, units = None, il_batch_input_shape = None,label =False):
 		#W is numpy array from imported pickel.
 		super(GINN_inputLayer, self).__init__(dynamic= True, batch_input_shape = il_batch_input_shape) #instantiate super class. 
 		# print('is eager in __init__',tf.executing_eagerly())
 		self.Weights = Weights
 		self.K = len(Weights) # number of clusters (or concepts)
 		self.units = units
+		# if isinstance(label,Fold):
+		self.label = label
 		# print('il_batch_input_shape is ',il_batch_input_shape)
 		self.batch_size =  il_batch_input_shape[0]
 		# print('self.batch_size is ',self.batch_size)
@@ -124,7 +126,7 @@ class GINN_inputLayer(layers.Layer):
 		# z^k_j := (z^k_{j,1}, ... z^k_{j,n(k)) (1 x n(k))
 		sum_of_prod_of_delta_k_2_star_and_z_k = 0 #sum of product of delta_k_2_star_and z_k ,i.e., frequency, of doc j. See line 17 of Algorithm1
 		for j in range(self.batch_size): #self.batch_size == the cardinality of Omega_m
-			d_j = self.transform_label_to_matrix(self.data.labels_train[j]) #RECONSIDER this... 
+			d_j = self.transform_label_to_matrix(self.label[j]) #RECONSIDER this... 
 			# assert type(d_j) == numpy.ndarray 
 			y_j = self.y[j] # minibatch dimension already being considered here.
 			y_j_np = y_j.numpy()
@@ -184,17 +186,17 @@ class GINN_inputLayer(layers.Layer):
 	
 
 class GINN_model(keras.Model):
-	def __init__(self, data):
+	def __init__(self, fold, data):
 		super(GINN_model, self).__init__()
 		self.data = data
 		self.data_d0 = self.data.num_of_elements_in_a_batch
 		# self.data_d1 = self.data.row_dimension
 		self.data_d1 = self.data.feature_dimension
 		self.classwise_prediction_list = []
-	
+		self.fold = fold
 	def build(self, input_shape):
 		# print('is eager in GINN_model build',tf.executing_eagerly())
-		self.inputlayer = GINN_inputLayer(self.data.W,units = len(self.data.W),il_batch_input_shape= (self.data_d0,self.data_d1))#len(self.data.W) should be as same as forthcoming self.K.
+		self.inputlayer = GINN_inputLayer(self.fold.W,units = len(self.fold.W),il_batch_input_shape= (self.data_d0,self.data_d1),label=self.fold.labels_train)#len(self.data.W) should be as same as forthcoming self.K.
 		self.K = self.inputlayer.K
 		self.K2 = self.K*2 # Edges from Concept layer to next layer. See Fig 1 of Ito et al.(2020)
 		self.secondlayer = layers.Dense(self.K2, activation="tanh",kernel_initializer='random_normal',use_bias = False,)
@@ -202,11 +204,7 @@ class GINN_model(keras.Model):
 		self.inputlayer.extract_vars(self)
 		# super(GINN_model, self).build(input_shape) #Not certain if insntantiating the parenct class,i.e., keras.Model, is desirable
 	
-	def call(self, inputs,test_data= False): # inputs = v^{BOW}_j
-		if test_data == True:
-			print('test data now')
-			self.prediction_for_test =[]
-		# self.inner_list = []
+	def call(self, inputs,label = False,test_data= False): # inputs = v^{BOW}_j
 		# print('is eager in GINN_model call',tf.executing_eagerly())
 		vCS = self.inputlayer(inputs) 
 		# localvCS = tuple(tuple(vCS))
@@ -328,6 +326,7 @@ class Fold(object):
 		self.labels_train = self.read_pickles(filelist[4])
 		self.validation_data = self.read_pickles(filelist[5])
 		self.labels_validation = self.read_pickles(filelist[6])
+		
 	
 	def read_pickles(self,filepath):
 		with open(filepath,'rb') as fin:
@@ -335,10 +334,14 @@ class Fold(object):
 		return loaded_data
 	
 	def get_dataset(self,):
-		data = InputData(fold = self,num_of_batch=NUM_OF_BATCH,isDropRemainder=True)
-		self.test_dataset= data.test_input
-		self.validation_dataset= data.validation_input
-		self.train_dataset= data.train_input
+		self.data = InputData(fold = self,num_of_batch=NUM_OF_BATCH,isDropRemainder=True)
+		#below are tf.data.dataset, where model input and label are concatenated into one variable such as data.test_input
+		self.test_dataset= self.data.test_input
+		self.validation_dataset= self.data.validation_input
+		self.train_dataset= self.data.train_input
+	
+	def set_model(self):
+		self.model = GINN_model(self,self.data)
 
 class Main_Process(object):
 	def __init__(self,data_folder):
@@ -369,6 +372,10 @@ class Main_Process(object):
 	
 	def train_and_valdiate(self):
 		for fold in self.folds:
+			fold.set_model()
+			fold.model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy'])
+			fold.model.fit(fold.train_dataset,epochs = 3)
+			# fold.model.evaluate(fold.validation_dataset)
 			print(fold)
 			pass
 
