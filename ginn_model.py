@@ -18,7 +18,7 @@ import os
 #Setting constants as below
 DATA_FOLDER = './data/production'
 BUNDLE_FOLDER = '/bundle'
-
+NUM_OF_BATCH = 2
 class Model_wrapper(object):
 	def __init__(self, model):
 		self.model = model
@@ -227,54 +227,64 @@ class GINN_model(keras.Model):
 		return y_prob_pred 
 
 class InputData(object):
-	def __init__(self,batch_size = None,isDropRemainder = True, data_segment = 'train'):
-		self.batch_size = batch_size
+	def __init__(self,fold=None, num_of_batch = None,isDropRemainder = True):
+		#fold_obj is an instance of Fold class, not mandatory.
+		print(fold)
+		self.num_of_batch = num_of_batch
 		self.isRemainderTrue = isDropRemainder  
-		self.read_pickles()
-		self.test_input = self.preprocess_input(data_segment= 'test') # run test first in this line 
-		self.validation_input = self.preprocess_input(data_segment= 'validation') # run test first in this line 
-		self.train_input = self.preprocess_input(data_segment= 'training') # run after self.test_input has been created
+		# self.read_pickles()
+		self.test_input = self.preprocess_input(data_segment= 'test',fold=fold) # run test first in this line 
+		self.validation_input = self.preprocess_input(data_segment= 'validation',fold=fold) # run test first in this line 
+		self.train_input = self.preprocess_input(data_segment= 'training',fold=fold) # run after self.test_input has been created
+		# return [self.test_input,self.validation_input,self.train_input]	
 	
-	def read_pickles(self):
-		#import wegiht CONSIDER importing form test, validation and training folder and listize each instance for future iteration for k-fold  
-		with open('data/data20220611_01/W.pkl', 'rb') as fin:
-			self.W = pickle.load(fin)
-		#import training_data(i.e. vbow) 
-		with open('data/data20220611_01/train_1_input_data.pkl', 'rb') as fin:
-			self.training_data = pickle.load(fin)
-		#import test_data
-		with open('data/data20220611_01/test_1_input_data.pkl', 'rb') as fin:
-			self.test_data = pickle.load(fin)
-		#import validation_data
-		with open('data/data20220611_01/validation_1_input_data.pkl', 'rb') as fin:
-			self.validation_data = pickle.load(fin)
-		#import label for train data (positive = 1, negative = 0) 
-		with open('data/data20220611_01/train_1_labels.pkl', 'rb') as fin:
-			self.labels_train = pickle.load(fin)
-		#import label for test data (positive = 1, negative = 0) 
-		with open('data/data20220611_01/test_1_labels.pkl', 'rb') as fin:
-			self.labels_test = pickle.load(fin)
-		#import label for validation data (positive = 1, negative = 0) 
-		with open('data/data20220611_01/validation_1_labels.pkl', 'rb') as fin:
-			self.labels_validation = pickle.load(fin)
+	# def read_pickles(self):
+	# 	#import wegiht CONSIDER importing form test, validation and training folder and listize each instance for future iteration for k-fold  
+	# 	with open('data/data20220611_01/W.pkl', 'rb') as fin:
+	# 		self.W = pickle.load(fin)
+	# 	#import training_data(i.e. vbow) 
+	# 	with open('data/data20220611_01/train_1_input_data.pkl', 'rb') as fin:
+	# 		self.training_data = pickle.load(fin)
+	# 	#import test_data
+	# 	with open('data/data20220611_01/test_1_input_data.pkl', 'rb') as fin:
+	# 		self.test_data = pickle.load(fin)
+	# 	#import validation_data
+	# 	with open('data/data20220611_01/validation_1_input_data.pkl', 'rb') as fin:
+	# 		self.validation_data = pickle.load(fin)
+	# 	#import label for train data (positive = 1, negative = 0) 
+	# 	with open('data/data20220611_01/train_1_labels.pkl', 'rb') as fin:
+	# 		self.labels_train = pickle.load(fin)
+	# 	#import label for test data (positive = 1, negative = 0) 
+	# 	with open('data/data20220611_01/test_1_labels.pkl', 'rb') as fin:
+	# 		self.labels_test = pickle.load(fin)
+	# 	#import label for validation data (positive = 1, negative = 0) 
+	# 	with open('data/data20220611_01/validation_1_labels.pkl', 'rb') as fin:
+	# 		self.labels_validation = pickle.load(fin)
 
 
-		print('===End Reading Pickles==')
+	# 	print('===End Reading Pickles==')
 	
-	def preprocess_input(self,data_segment = 'training'):
+	def preprocess_input(self,data_segment = 'training',fold = None):
 		"""
 		change numpy ndarray training_data AND labels to tf.data.Dataset data.
 		"""
 		if data_segment == 'training':
-			data = self.training_data
-			labels = self.labels_train
+			# data = self.training_data
+			# labels = self.labels_train
+			data = fold.training_data
+			labels = fold.labels_train
 		elif data_segment =='test':
-			data = self.test_data
-			labels = self.labels_test
-			print('len of test_data',len(self.test_data))
+			# data = self.test_data
+			# labels = self.labels_test
+			# print('len of test_data',len(self.test_data))
+			data = fold.test_data
+			labels = fold.labels_test
+
 		elif data_segment =='validation':
-			data = self.validation_data
-			labels = self.labels_validation
+			# data = self.validation_data
+			# labels = self.labels_validation
+			data = fold.training_data
+			labels = fold.labels_train
 		
 		#1.Preprocess training data
 		preprocessed_training_data = [x for x in data ]
@@ -296,9 +306,9 @@ class InputData(object):
 		if self.isRemainderTrue == False:
 			self.lastrow_num_of_data = len(self.x)  #-1 means index offset
 		elif self.isRemainderTrue == True:
-			self.lastrow_num_of_data = (len(self.x) // self.batch_size) * self.batch_size  #-1 means index offset
+			self.lastrow_num_of_data = (len(self.x) // self.num_of_batch) * self.num_of_batch  #-1 means index offset
 		#TODO take num of cluster and dimentions of data and add them as attributes of this call to use them 		
-		self.num_of_elements_in_a_batch = len(self.x)//self.batch_size
+		self.num_of_elements_in_a_batch = len(self.x)//self.num_of_batch
 
 		#drop_remainder should be true as the value of inputs.shape[0] should be valid.
 		if data_segment == 'training':
@@ -310,14 +320,25 @@ class InputData(object):
 		
 class Fold(object):
 	def __init__(self,filelist):
-		#filelist is a list of file name path
-		self.train_input_data 
-		self.train_labels 
-		self.validation_input_data
-		self.validation_labels
-		self.test_input_data
-		self.test_labels
-		self.W
+		#filelist is a list of file name path, note filelist contents order crucial here.
+		self.W = self.read_pickles(filelist[0])
+		self.test_data = self.read_pickles(filelist[1])
+		self.labels_test = self.read_pickles(filelist[2])
+		self.training_data = self.read_pickles(filelist[3])
+		self.labels_train = self.read_pickles(filelist[4])
+		self.validation_data = self.read_pickles(filelist[5])
+		self.labels_validation = self.read_pickles(filelist[6])
+	
+	def read_pickles(self,filepath):
+		with open(filepath,'rb') as fin:
+			loaded_data = pickle.load(fin)
+		return loaded_data
+	
+	def get_dataset(self,):
+		data = InputData(fold = self,num_of_batch=NUM_OF_BATCH,isDropRemainder=True)
+		self.test_dataset= data.test_input
+		self.validation_dataset= data.validation_input
+		self.train_dataset= data.train_input
 
 class Main_Process(object):
 	def __init__(self,data_folder):
@@ -337,42 +358,55 @@ class Main_Process(object):
 		return whole_datafile_path
 		
 	def preprocess_data(self):
+		self.folds = []
+		for filelist in self.all_k_dataset:
+			aFold = Fold(filelist)
+			aFold.get_dataset()
+			self.folds.append(aFold)
+		# for n in 
+		print(self.folds)
 		#preprocess input data using InputData class
-		pass
+	
+	def train_and_valdiate(self):
+		for fold in self.folds:
+			print(fold)
+			pass
 
 #ToDo write decorator to save output to .txt file
-def output_to_txt_file(f):
-	def log():
-		# os.system('script test.txt')
-		print('start now')
-		f()
-	return log 
+# def output_to_txt_file(f):
+# 	def log():
+# 		# os.system('script test.txt')
+# 		print('start now')
+# 		f()
+# 	return log 
 
-@output_to_txt_file
-def main():
-	data = InputData(batch_size=2, isDropRemainder = True ) 
-	g_model = GINN_model(data)
-	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy']) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
-	print(g_model.run_eagerly)
-	print('--training--')
-	g_model.fit(data.train_input, epochs = 3)#callback epoch g_model.summary()
-	print('--evaluating--')
-	output=g_model.evaluate(data.validation_input)
-	print('output is ',output)
-	prediction = g_model.predict(data.test_input)
-	print(g_model.y)
-	print('predction is ',prediction)
-	classwise_prediction_result = g_model.y#get probability for test data
-	print('classwise_predcition result is ',classwise_prediction_result)	
-	open_file = open('./buff/' + 'classwise_prediction.pkl','wb')
-	pickle.dump(classwise_prediction_result,open_file)
-	open_file = open('./buff/' + 'data_label_test.pkl','wb')
-	pickle.dump(data.labels_test,open_file)
-	print('inputlayer weights are ',g_model.inputlayer.weights)
-	g_model.summary()
+# @output_to_txt_file
+# def main():
+# 	data = InputData(num_of_batch = NUM_OF_BATCH, isDropRemainder = True ) 
+# 	g_model = GINN_model(data)
+# 	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy']) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
+# 	print(g_model.run_eagerly)
+# 	print('--training--')
+# 	g_model.fit(data.train_input, epochs = 3)#callback epoch g_model.summary()
+# 	print('--evaluating--')
+# 	output=g_model.evaluate(data.validation_input)
+# 	print('output is ',output)
+# 	prediction = g_model.predict(data.test_input)
+# 	print(g_model.y)
+# 	print('predction is ',prediction)
+# 	classwise_prediction_result = g_model.y#get probability for test data
+# 	print('classwise_predcition result is ',classwise_prediction_result)	
+# 	open_file = open('./buff/' + 'classwise_prediction.pkl','wb')
+# 	pickle.dump(classwise_prediction_result,open_file)
+# 	open_file = open('./buff/' + 'data_label_test.pkl','wb')
+# 	pickle.dump(data.labels_test,open_file)
+# 	print('inputlayer weights are ',g_model.inputlayer.weights)
+# 	g_model.summary()
 
 
 print(os.listdir(DATA_FOLDER))
 main = Main_Process(DATA_FOLDER+BUNDLE_FOLDER)
+main.preprocess_data()
+main.train_and_valdiate()
 # main()
 
