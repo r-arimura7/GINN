@@ -13,6 +13,7 @@ from tensorflow.python.keras.backend import dtype
 import pickle
 import tensorflow_addons as tfa
 import os
+import matplotlib.pyplot as plt
 #from tensorflow.keras.backend import eval
 # tf.compat.v1.disable_eager_execution()
 #Setting constants as below
@@ -371,13 +372,28 @@ class Main_Process(object):
 		#preprocess input data using InputData class
 	
 	def train_and_valdiate(self):
-		for fold in self.folds:
+		all_loss_histories = []
+		num_epochs = 2
+		for fold in self.folds[0:2]: #delete slicing in production 2022/6/30
 			fold.set_model()
-			fold.model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy'])
-			fold.model.fit(fold.train_dataset,epochs = 3)
-			# fold.model.evaluate(fold.validation_dataset)
-			print(fold)
-			pass
+			fold.model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True)
+			history = fold.model.fit(fold.train_dataset,epochs = num_epochs,validation_data = fold.validation_dataset)
+			loss_history = history.history['loss']
+			# print('evaluating...')
+			# output = fold.model.evaluate(fold.validation_dataset)
+			print('loss_history is', history)
+			all_loss_histories.append(loss_history)
+			# validation_scores.append(output)
+		# print('validation score is ',np.average(validation_scores))
+		self.average_loss_histories = [np.mean([x[i] for x in all_loss_histories]) for i in range(num_epochs)]
+		# print(self.average_loss_histories)
+
+	def draw_graph(self):
+		plt.plot(range(1,len(self.average_loss_histories)+1), self.average_loss_histories)
+		plt.xlabel('Epochs')
+		plt.ylabel('Validation Loss')
+		plt.show
+		print('done!')
 
 #ToDo write decorator to save output to .txt file
 # def output_to_txt_file(f):
@@ -411,9 +427,9 @@ class Main_Process(object):
 # 	g_model.summary()
 
 
-print(os.listdir(DATA_FOLDER))
 main = Main_Process(DATA_FOLDER+BUNDLE_FOLDER)
 main.preprocess_data()
 main.train_and_valdiate()
+main.draw_graph()
 # main()
 
