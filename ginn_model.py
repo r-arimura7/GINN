@@ -14,8 +14,10 @@ import pickle
 import tensorflow_addons as tfa
 import os
 import matplotlib.pyplot as plt
-#from tensorflow.keras.backend import eval
-# tf.compat.v1.disable_eager_execution()
+import datetime
+
+date_now = datetime.datetime.now()
+date_str = date_now.strftime('_%Y_%m%d_%H%M_%S')
 #Setting constants as below
 DATA_FOLDER = './data/production'
 BUNDLE_FOLDER = '/bundle'
@@ -393,6 +395,7 @@ class Main_Process(object):
 		plt.xlabel('Epochs')
 		plt.ylabel('Validation Loss')
 		plt.show
+		plt.savefig('./buff/plt' + date_str+'.jpg')
 		print('done!')
 
 #ToDo write decorator to save output to .txt file
