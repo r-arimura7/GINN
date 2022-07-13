@@ -21,7 +21,9 @@ date_str = date_now.strftime('_%Y_%m%d_%H%M_%S')
 #Setting constants as below
 DATA_FOLDER = './data/production'
 BUNDLE_FOLDER = '/bundle'
-NUM_OF_BATCH = 2
+NUM_OF_BATCH = 1
+NUM_OF_FOLD = 1 #number of fold. set 1 when you don't use k-fold cv at all.
+NUM_OF_EPOCHS = 1
 class Model_wrapper(object):
 	def __init__(self, model):
 		self.model = model
@@ -201,7 +203,7 @@ class GINN_model(keras.Model):
 		# print('is eager in GINN_model build',tf.executing_eagerly())
 		self.inputlayer = GINN_inputLayer(self.fold.W,units = len(self.fold.W),il_batch_input_shape= (self.data_d0,self.data_d1),label=self.fold.labels_train)#len(self.data.W) should be as same as forthcoming self.K.
 		self.K = self.inputlayer.K
-		self.K2 = self.K*2 # Edges from Concept layer to next layer. See Fig 1 of Ito et al.(2020)
+		self.K2 = 2 #self.K*2 # Edges from Concept layer to next layer. See Fig 1 of Ito et al.(2020)
 		self.secondlayer = layers.Dense(self.K2, activation="tanh",kernel_initializer='random_normal',use_bias = False,)
 		self.outputlayer = layers.Dense(2, activation='softmax') 
 		self.inputlayer.extract_vars(self)
@@ -230,7 +232,6 @@ class GINN_model(keras.Model):
 class InputData(object):
 	def __init__(self,fold=None, num_of_batch = None,isDropRemainder = True):
 		#fold_obj is an instance of Fold class, not mandatory.
-		print(fold)
 		self.num_of_batch = num_of_batch
 		self.isRemainderTrue = isDropRemainder  
 		# self.read_pickles()
@@ -284,12 +285,15 @@ class InputData(object):
 		elif data_segment =='validation':
 			# data = self.validation_data
 			# labels = self.labels_validation
-			data = fold.training_data
-			labels = fold.labels_train
+			data = fold.validation_data
+			labels = fold.labels_validation
 		
+		print(data_segment)
+
 		#1.Preprocess training data
 		preprocessed_training_data = [x for x in data ]
 		data_intermediatelist = []
+		print('len of preprocessed_training_data is ', len(preprocessed_training_data))
 		for cnt in range(len(preprocessed_training_data)):
 			di = preprocessed_training_data[cnt][:].tolist()
 			data_intermediatelist.append(sum(di,[])) # flatten
@@ -300,7 +304,7 @@ class InputData(object):
 
 		#2.Preprocess label
 		self.formatted_labels=tf.expand_dims(tf.constant(labels[:].tolist(),dtype= 'float32'),axis=1)
-		
+		print('len of self.formatted_labels is ', len(self.formatted_labels))
 		#3.Enter xs and ys to tf.data.Dataset
 		self.row_dimension = len(self.x)
 		self.feature_dimension = len(self.x[0])
@@ -354,7 +358,7 @@ class Main_Process(object):
 	def retrieve_dataset_files(self,data_folder):
 		whole_datafile_path = []
 		files_path_list = []
-		for i in range(5):
+		for i in range(NUM_OF_FOLD):
 			fileslist = os.listdir(data_folder+str(i))
 			fileslist.sort() #as a result order will be ['W_0.pkl', 'test_0_input_data.pkl', 'test_0_labels.pkl', 'train_0_input_data.pkl', 'train_0_labels.pkl', 'validation_0_input_data.pkl', 'validation_0_labels.pkl']
 			[files_path_list.append((data_folder+str(i)+'/'+fileslist[cnt])) for cnt in range(len(fileslist)) ]
@@ -375,11 +379,12 @@ class Main_Process(object):
 	
 	def train_and_valdiate(self):
 		all_loss_histories = []
-		num_epochs = 2
-		for fold in self.folds[0:2]: #delete slicing in production 2022/6/30
+		num_epochs = NUM_OF_EPOCHS 
+		for fold in self.folds:#[0:2]: #delete slicing in production 2022/6/30
 			fold.set_model()
 			fold.model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True)
-			history = fold.model.fit(fold.train_dataset,epochs = num_epochs,validation_data = fold.validation_dataset)
+			# history = fold.model.fit(fold.train_dataset,epochs = num_epochs,validation_data = fold.validation_dataset)#activate this when using validation dataset
+			history = fold.model.fit(fold.train_dataset,epochs = num_epochs)
 			loss_history = history.history['loss']
 			# print('evaluating...')
 			# output = fold.model.evaluate(fold.validation_dataset)
@@ -389,13 +394,23 @@ class Main_Process(object):
 		# print('validation score is ',np.average(validation_scores))
 		self.average_loss_histories = [np.mean([x[i] for x in all_loss_histories]) for i in range(num_epochs)]
 		# print(self.average_loss_histories)
+	
+	def run_test(self):
+		self.prediction = self.folds[0].model.predict(self.folds[0].test_data_set)
+		classwise_prediction_result = self.folds[0].y#get probability for test data
+		open_file = open('./buff/' + date_str +'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS)+'classwise_prediction.pkl','wb')
+		pickle.dump(classwise_prediction_result,open_file)
+		open_file = open('./buff/'+ date_str +'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS) + 'data_label_test.pkl','wb')
+		pickle.dump(self.folds[0].labels_test,open_file)
 
+
+	
 	def draw_graph(self):
 		plt.plot(range(1,len(self.average_loss_histories)+1), self.average_loss_histories)
 		plt.xlabel('Epochs')
 		plt.ylabel('Validation Loss')
 		plt.show
-		plt.savefig('./buff/plt' + date_str+'.jpg')
+		plt.savefig('./buff/plt' + date_str+'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS)+'.jpg')
 		print('done!')
 
 #ToDo write decorator to save output to .txt file
@@ -421,7 +436,7 @@ class Main_Process(object):
 # 	print(g_model.y)
 # 	print('predction is ',prediction)
 # 	classwise_prediction_result = g_model.y#get probability for test data
-# 	print('classwise_predcition result is ',classwise_prediction_result)	
+# # 	print('classwise_predcition result is ',classwise_prediction_result)	
 # 	open_file = open('./buff/' + 'classwise_prediction.pkl','wb')
 # 	pickle.dump(classwise_prediction_result,open_file)
 # 	open_file = open('./buff/' + 'data_label_test.pkl','wb')
