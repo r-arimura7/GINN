@@ -22,8 +22,8 @@ date_str = date_now.strftime('_%Y_%m%d_%H%M_%S')
 DATA_FOLDER = './data/production'
 BUNDLE_FOLDER = '/bundle'
 NUM_OF_BATCH = 1
-NUM_OF_FOLD = 1 #number of fold. set 1 when you don't use k-fold cv at all.
-NUM_OF_EPOCHS = 1
+NUM_OF_FOLD = 5 #number of fold. set 1 when you don't use k-fold cv at all.
+NUM_OF_EPOCHS = 2 #TODO does not work in 1 2022/7/14
 class Model_wrapper(object):
 	def __init__(self, model):
 		self.model = model
@@ -380,7 +380,7 @@ class Main_Process(object):
 	def train_and_valdiate(self):
 		all_loss_histories = []
 		num_epochs = NUM_OF_EPOCHS 
-		for fold in self.folds:#[0:2]: #delete slicing in production 2022/6/30
+		for fold in self.folds[0:1]:#[0:2]: #delete slicing in production 2022/6/30
 			fold.set_model()
 			fold.model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True)
 			# history = fold.model.fit(fold.train_dataset,epochs = num_epochs,validation_data = fold.validation_dataset)#activate this when using validation dataset
@@ -448,6 +448,7 @@ class Main_Process(object):
 main = Main_Process(DATA_FOLDER+BUNDLE_FOLDER)
 main.preprocess_data()
 main.train_and_valdiate()
+main.run_test()
 main.draw_graph()
 # main()
 
