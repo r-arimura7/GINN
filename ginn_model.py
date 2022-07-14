@@ -21,7 +21,7 @@ date_str = date_now.strftime('_%Y_%m%d_%H%M_%S')
 #Setting constants as below
 DATA_FOLDER = './data/production'
 BUNDLE_FOLDER = '/bundle'
-NUM_OF_BATCH = 1
+NUM_OF_BATCH = 5
 NUM_OF_FOLD = 5 #number of fold. set 1 when you don't use k-fold cv at all.
 NUM_OF_EPOCHS = 2 #TODO does not work in 1 2022/7/14
 class Model_wrapper(object):
@@ -293,7 +293,13 @@ class InputData(object):
 		#1.Preprocess training data
 		preprocessed_training_data = [x for x in data ]
 		data_intermediatelist = []
-		print('len of preprocessed_training_data is ', len(preprocessed_training_data))
+
+		if data_segment == 'training':
+			self.training_data_size =len(preprocessed_training_data) 
+		elif data_segment =='test':
+			self.test_data_size =len(preprocessed_training_data) 
+
+		print('len of data is ', len(preprocessed_training_data))
 		for cnt in range(len(preprocessed_training_data)):
 			di = preprocessed_training_data[cnt][:].tolist()
 			data_intermediatelist.append(sum(di,[])) # flatten
@@ -396,21 +402,19 @@ class Main_Process(object):
 		# print(self.average_loss_histories)
 	
 	def run_test(self):
-		self.prediction = self.folds[0].model.predict(self.folds[0].test_data_set)
-		classwise_prediction_result = self.folds[0].y#get probability for test data
-		open_file = open('./buff/' + date_str +'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS)+'classwise_prediction.pkl','wb')
+		self.prediction = self.folds[0].model.predict(self.folds[0].test_dataset)
+		classwise_prediction_result = self.folds[0].model.y#get probability for test data
+		open_file = open('./buff/' + date_str + 'TrainData'+str(self.folds[0].data.training_data_size) +'TestData'+str(self.folds[0].data.test_data_size)+'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS)+'classwise_prediction.pkl','wb')
 		pickle.dump(classwise_prediction_result,open_file)
-		open_file = open('./buff/'+ date_str +'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS) + 'data_label_test.pkl','wb')
+		open_file = open('./buff/'+ date_str +'TrainData'+str(self.folds[0].data.training_data_size) +'TestData'+str(self.folds[0].data.test_data_size)+'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS) + 'data_label_test.pkl','wb')
 		pickle.dump(self.folds[0].labels_test,open_file)
-
-
 	
 	def draw_graph(self):
 		plt.plot(range(1,len(self.average_loss_histories)+1), self.average_loss_histories)
 		plt.xlabel('Epochs')
 		plt.ylabel('Validation Loss')
 		plt.show
-		plt.savefig('./buff/plt' + date_str+'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS)+'.jpg')
+		plt.savefig('./buff/losses' +'TrainData'+str(self.folds[0].data.training_data_size) +'TestData'+str(self.folds[0].data.test_data_size)+ date_str+'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS)+'.jpg')
 		print('done!')
 
 #ToDo write decorator to save output to .txt file
