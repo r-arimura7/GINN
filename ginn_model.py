@@ -4,7 +4,7 @@ from re import I
 from numpy.lib.function_base import append
 import tensorflow as tf
 from tensorflow import keras
-from keras import layers
+# from keras import layers
 import numpy as np
 from tensorflow.python.eager.def_function import run_functions_eagerly
 #from tensorflow.python.autograph.core.converter import Feature
@@ -13,7 +13,7 @@ from tensorflow.python.keras.backend import dtype
 import pickle
 import tensorflow_addons as tfa
 import os
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import datetime
 
 date_now = datetime.datetime.now()
@@ -23,14 +23,13 @@ DATA_FOLDER = './data/production'
 BUNDLE_FOLDER = '/bundle'
 NUM_OF_BATCH = 5
 NUM_OF_FOLD = 5 #number of fold. set 1 when you don't use k-fold cv at all.
-NUM_OF_EPOCHS = 2 #TODO does not work in 1 2022/7/14
+NUM_OF_EPOCHS = 10 #TODO does not work in 1 2022/7/14
 class Model_wrapper(object):
 	def __init__(self, model):
 		self.model = model
 
-class GINN_inputLayer(layers.Layer):
+class GINN_inputLayer(tf.keras.layers.Layer):
 	def __init__(self, Weights, units = None, il_batch_input_shape = None,label =False):
-		#W is numpy array from imported pickel.
 		super(GINN_inputLayer, self).__init__(dynamic= True, batch_input_shape = il_batch_input_shape) #instantiate super class. 
 		# print('is eager in __init__',tf.executing_eagerly())
 		self.Weights = Weights
@@ -59,16 +58,10 @@ class GINN_inputLayer(layers.Layer):
 		super(GINN_inputLayer, self).build(input_shape)
 
 	def call(self, inputs):
-		# print('is eager in call',tf.executing_eagerly())
-		# self.vCS = []
-		self.Z = [] # moved here; taka, Mar/10
-		self.u2 = [] # moved here; taka, Mar/10
-		# if self.itertaion_num == []:
-		# 	self.j_first = 0
-		# 	self.j_last = self.batch_size
-
+		self.Z = []
+		self.u2 = [] 
 		for j in range(inputs.shape[0]): 
-			All_data =self.data.data_frequencies_All_data #ENSURE this process is valid in train and validation inputs 2022/06/29
+			All_data =self.data.data_frequencies_All_data 
 			intermediate_xs = All_data[j] 
 			xs = [float(x) for x in intermediate_xs]
 			params = xs
@@ -77,21 +70,11 @@ class GINN_inputLayer(layers.Layer):
 				local_vCS = tf.expand_dims(vCS,axis=0)
 			elif j != 0:
 				local_vCS = tf.experimental.numpy.vstack((local_vCS,tf.expand_dims(vCS,axis=0)))
-			# self.vCS.append(vCS)
-		# if not self.j_last == self.data.lastrow_num_of_data:
-		# 	self.j_first = self.j_last
-		# 	self.j_last += self.batch_size
-		# elif self.j_last == self.data.lastrow_num_of_data:
-		# 	self.j_first = 0
-		# 	self.j_last = self.batch_size
 		self.vCS = local_vCS
 		return self.vCS 
 
 	@tf.custom_gradient
 	def GINN_op(self,*x):
-		# x is frequencies, K is number of cluster, n is a container includes n_k, falltened_W is tf.Variables) 
-		# Creating forward pass
-		# print('is eager in custom_gradient',tf.executing_eagerly())
 		xs = x 
 		ws = []
 		z_j = []
@@ -104,18 +87,16 @@ class GINN_inputLayer(layers.Layer):
 			ws.append(tf.linalg.matvec(weight_vector, z_k))
 			k0 = k1
 		self.Z.append(z_j)
-		u2_j = tf.concat(ws,axis=0) # you can use this in algo1()
+		u2_j = tf.concat(ws,axis=0) 
 		self.u2.append(u2_j)
-		vCS_j = tf.keras.activations.tanh(u2_j)
-		# Creating backward pass.
+		vCS_j = tf.keras.activations.tanh(u2_j)		
 		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
 			grad_xs = [tf.constant(1,dtype='float32') for _ in range(len(variables))]
 			dy_dws = []
-			grad_vars = []  # To store gradients of passed variables
+			grad_vars = [] 
 			for k in range(self.K):
-				dy_dw =  self.algo1(k) #change variables[k]　to self.w[k]
-				dy_dws.append(dy_dw)
-			#fallaten dy_dws to store into grad_vars
+				dy_dw =  self.algo1(k) 
+				dy_dws.append(dy_dw)			
 			intermediate_grad_vars = [tf.constant(item, dtype='float32') for i in dy_dws for item in i]
 			grad_vars = intermediate_grad_vars 
 			return grad_xs, grad_vars
@@ -190,7 +171,7 @@ class GINN_inputLayer(layers.Layer):
 		self.y = y
 	
 
-class GINN_model(keras.Model):
+class GINN_model(tf.keras.Model):
 	def __init__(self, fold, data):
 		super(GINN_model, self).__init__()
 		self.data = data
@@ -203,9 +184,10 @@ class GINN_model(keras.Model):
 		# print('is eager in GINN_model build',tf.executing_eagerly())
 		self.inputlayer = GINN_inputLayer(self.fold.W,units = len(self.fold.W),il_batch_input_shape= (self.data_d0,self.data_d1),label=self.fold.labels_train)#len(self.data.W) should be as same as forthcoming self.K.
 		self.K = self.inputlayer.K
-		self.K2 = 2 #self.K*2 # Edges from Concept layer to next layer. See Fig 1 of Ito et al.(2020)
-		self.secondlayer = layers.Dense(self.K2, activation="tanh",kernel_initializer='random_normal',use_bias = False,)
-		self.outputlayer = layers.Dense(2, activation='softmax') 
+		print('self.K is ',self.K)
+		self.K2 =  5 # Edges from Concept layer to next layer. See Fig 1 of Ito et al.(2020)
+		self.secondlayer = tf.keras.layers.Dense(self.K2, activation="tanh",kernel_initializer='random_normal',use_bias = False,)
+		self.outputlayer = tf.keras.layers.Dense(2, activation='softmax') 
 		self.inputlayer.extract_vars(self)
 		# super(GINN_model, self).build(input_shape) #Not certain if insntantiating the parenct class,i.e., keras.Model, is desirable
 	
@@ -236,7 +218,7 @@ class InputData(object):
 		self.isRemainderTrue = isDropRemainder  
 		# self.read_pickles()
 		self.test_input = self.preprocess_input(data_segment= 'test',fold=fold) # run test first in this line 
-		self.validation_input = self.preprocess_input(data_segment= 'validation',fold=fold) # run test first in this line 
+		# self.validation_input = self.preprocess_input(data_segment= 'validation',fold=fold) # run test first in this line 
 		self.train_input = self.preprocess_input(data_segment= 'training',fold=fold) # run after self.test_input has been created
 		# return [self.test_input,self.validation_input,self.train_input]	
 	
@@ -350,7 +332,7 @@ class Fold(object):
 		self.data = InputData(fold = self,num_of_batch=NUM_OF_BATCH,isDropRemainder=True)
 		#below are tf.data.dataset, where model input and label are concatenated into one variable such as data.test_input
 		self.test_dataset= self.data.test_input
-		self.validation_dataset= self.data.validation_input
+		# self.validation_dataset= self.data.validation_input
 		self.train_dataset= self.data.train_input
 	
 	def set_model(self):
@@ -364,7 +346,7 @@ class Main_Process(object):
 	def retrieve_dataset_files(self,data_folder):
 		whole_datafile_path = []
 		files_path_list = []
-		for i in range(NUM_OF_FOLD):
+		for i in range(NUM_OF_FOLD):#NUM OF FOLD
 			fileslist = os.listdir(data_folder+str(i))
 			fileslist.sort() #as a result order will be ['W_0.pkl', 'test_0_input_data.pkl', 'test_0_labels.pkl', 'train_0_input_data.pkl', 'train_0_labels.pkl', 'validation_0_input_data.pkl', 'validation_0_labels.pkl']
 			[files_path_list.append((data_folder+str(i)+'/'+fileslist[cnt])) for cnt in range(len(fileslist)) ]
@@ -375,7 +357,7 @@ class Main_Process(object):
 		
 	def preprocess_data(self):
 		self.folds = []
-		for filelist in self.all_k_dataset:
+		for filelist in self.all_k_dataset[0:1]:
 			aFold = Fold(filelist)
 			aFold.get_dataset()
 			self.folds.append(aFold)
@@ -386,7 +368,8 @@ class Main_Process(object):
 	def train_and_valdiate(self):
 		all_loss_histories = []
 		num_epochs = NUM_OF_EPOCHS 
-		for fold in self.folds[0:1]:#[0:2]: #delete slicing in production 2022/6/30
+#[0:2]: #delete slicing in production 2022/6/30
+		for fold in self.folds[0:1]:
 			fold.set_model()
 			fold.model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True)
 			# history = fold.model.fit(fold.train_dataset,epochs = num_epochs,validation_data = fold.validation_dataset)#activate this when using validation dataset
@@ -409,13 +392,13 @@ class Main_Process(object):
 		open_file = open('./buff/'+ date_str +'TrainData'+str(self.folds[0].data.training_data_size) +'TestData'+str(self.folds[0].data.test_data_size)+'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS) + 'data_label_test.pkl','wb')
 		pickle.dump(self.folds[0].labels_test,open_file)
 	
-	def draw_graph(self):
-		plt.plot(range(1,len(self.average_loss_histories)+1), self.average_loss_histories)
-		plt.xlabel('Epochs')
-		plt.ylabel('Validation Loss')
-		plt.show
-		plt.savefig('./buff/losses' +'TrainData'+str(self.folds[0].data.training_data_size) +'TestData'+str(self.folds[0].data.test_data_size)+ date_str+'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS)+'.jpg')
-		print('done!')
+	# def draw_graph(self):
+	# 	plt.plot(range(1,len(self.average_loss_histories)+1), self.average_loss_histories)
+	# 	plt.xlabel('Epochs')
+	# 	plt.ylabel('Loss')
+	# 	plt.show
+	# 	plt.savefig('./buff/losses' +'TrainData'+str(self.folds[0].data.training_data_size) +'TestData'+str(self.folds[0].data.test_data_size)+ date_str+'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS)+'.jpg')
+	# 	print('done!')
 
 #ToDo write decorator to save output to .txt file
 # def output_to_txt_file(f):
@@ -453,6 +436,6 @@ main = Main_Process(DATA_FOLDER+BUNDLE_FOLDER)
 main.preprocess_data()
 main.train_and_valdiate()
 main.run_test()
-main.draw_graph()
+# main.draw_graph()
 # main()
 
