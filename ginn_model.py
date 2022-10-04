@@ -4,33 +4,42 @@ from re import I
 from numpy.lib.function_base import append
 import tensorflow as tf
 from tensorflow import keras
-from tensorflow.keras import layers
+# from keras import layers
 import numpy as np
 from tensorflow.python.eager.def_function import run_functions_eagerly
 #from tensorflow.python.autograph.core.converter import Feature
 from tensorflow.python.keras.backend import dtype
 #from tensorflow.python.keras.engine import data_adapter
 import pickle
-#from tensorflow.keras.backend import eval
-import random
+import tensorflow_addons as tfa
 import os
-# tf.compat.v1.disable_eager_execution()
+# import matplotlib.pyplot as plt
+import datetime
 
+date_now = datetime.datetime.now()
+date_str = date_now.strftime('_%Y_%m%d_%H%M_%S')
+#Setting constants as below
+DATA_FOLDER = './data/production'
+BUNDLE_FOLDER = '/bundle'
+NUM_OF_BATCH = 5
+NUM_OF_FOLD = 5 #number of fold. set 1 when you don't use k-fold cv at all.
+NUM_OF_EPOCHS = 10 #TODO does not work in 1 2022/7/14
 class Model_wrapper(object):
 	def __init__(self, model):
 		self.model = model
 
-class GINN_inputLayer(layers.Layer):
-	def __init__(self, Weights, units, il_batch_input_shape):
-		#W is numpy array from imported pickel.
-		super(GINN_inputLayer, self).__init__(dynamic= True,batch_input_shape = il_batch_input_shape) #instantiate super class. 
-		print('is eager in __init__',tf.executing_eagerly())
+class GINN_inputLayer(tf.keras.layers.Layer):
+	def __init__(self, Weights, units = None, il_batch_input_shape = None,label =False):
+		super(GINN_inputLayer, self).__init__(dynamic= True, batch_input_shape = il_batch_input_shape) #instantiate super class. 
+		# print('is eager in __init__',tf.executing_eagerly())
 		self.Weights = Weights
 		self.K = len(Weights) # number of clusters (or concepts)
 		self.units = units
-		print('il_batch_input_shape is ',il_batch_input_shape)
+		# if isinstance(label,Fold):
+		self.label = label
+		# print('il_batch_input_shape is ',il_batch_input_shape)
 		self.batch_size =  il_batch_input_shape[0]
-		print('self.batch_size is ',self.batch_size)
+		# print('self.batch_size is ',self.batch_size)
 		self.n = np.zeros(self.K, dtype=int)
 		self.m = 0 # Total number of words`
 		# self.n[k] is the number fo words contained in the k'th concept
@@ -42,74 +51,58 @@ class GINN_inputLayer(layers.Layer):
 	def build(self, input_shape):
 		self.processed_W = [k[0].flatten() for k in self.Weights]
 		self.flattened_W = np.concatenate(self.processed_W)
-		self.flattened_W_tfv = tf.Variable(self.flattened_W, trainable=True, dtype='float32')
-		# for w in self.Weights: # register trainable variables
-		# 	self.W.append(tf.Variable(w.tolist(), trainable=True, dtype='float32'))
-		# init_array =  np.zeros((2,self.K))
-		# self.H_star_j_t =tf.Variable(init_array,dtype='float32',trainable=False)
+		self.flattened_W_tfv = [tf.Variable(i,trainable=True,dtype='float32') for i in self.flattened_W] 
+		self.j_first = 0
+		self.j_last = self.batch_size
+
 		super(GINN_inputLayer, self).build(input_shape)
-		print('is eager in build',tf.executing_eagerly())
 
 	def call(self, inputs):
-		print('inputs in call is ',inputs)
-		print('is eager in call',tf.executing_eagerly())
-		print('self.K is ',self.K)
-		print('self.n is ',self.n)
-		print('self.flattened_W is ',self.flattened_W)
-		return self.GINN_op(inputs)
+		self.Z = []
+		self.u2 = [] 
+		for j in range(inputs.shape[0]): 
+			All_data =self.data.data_frequencies_All_data 
+			intermediate_xs = All_data[j] 
+			xs = [float(x) for x in intermediate_xs]
+			params = xs
+			vCS = self.GINN_op(*params)
+			if j == 0:
+				local_vCS = tf.expand_dims(vCS,axis=0)
+			elif j != 0:
+				local_vCS = tf.experimental.numpy.vstack((local_vCS,tf.expand_dims(vCS,axis=0)))
+		self.vCS = local_vCS
+		return self.vCS 
 
 	@tf.custom_gradient
-	def GINN_op(self,x):
-		# x is frequencies, K is number of cluster, n is a container includes n_k, falltened_W is tf.Variables) 
-		# Creating forward pass
-		self.Z = []
-		self.u2 = []
-		self.vCS = []
-		#DEBUG now.
-		for j in range(self.batch_size): #x.shape[0]represents batch size, be consistent!
-			xs = x[j][0][:]
-			print('xs is ',xs)
-			ws = []
-			z_j = []
-			k0 = 0
-			print('is eager in custom_gradient',tf.executing_eagerly())
-			# print('K is', K)
-			for k in range(self.K):
-				# is same as self.K which represents number of cluster.
-				k1 = k0 + self.n[k]
-				z_k = xs[k0:k1]
-				z_j.append(z_k)
-				weight_vector = tf.expand_dims(self.flattened_W_tfv[k0:k1],axis=0)
-				ws.append(tf.linalg.matvec(weight_vector, z_k))
-				k0 = k1
-			self.Z.append(z_j)
-			u2_j = tf.concat(ws,axis=0) # you can use this in algo1()
-			print('u2_j =', u2_j)
-			self.u2.append(u2_j)
-			vCS_j = tf.keras.activations.tanh(u2_j)
-			print('vCS_j is',vCS_j)
-			self.vCS.append(vCS_j)
-			print('self.vCS is ',self.vCS)
-		# Creating backward pass.
+	def GINN_op(self,*x):
+		xs = x 
+		ws = []
+		z_j = []
+		k0 = 0
+		for k in range(self.K):
+			k1 = k0 + self.n[k]
+			z_k = xs[k0:k1]
+			z_j.append(z_k)
+			weight_vector = tf.expand_dims(self.flattened_W_tfv[k0:k1],axis=0)
+			ws.append(tf.linalg.matvec(weight_vector, z_k))
+			k0 = k1
+		self.Z.append(z_j)
+		u2_j = tf.concat(ws,axis=0) 
+		self.u2.append(u2_j)
+		vCS_j = tf.keras.activations.tanh(u2_j)		
 		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
-			grad_xs = [0] # very stub!
-			#print('grad_xs is ',grad_xs)
+			grad_xs = [tf.constant(1,dtype='float32') for _ in range(len(variables))]
 			dy_dws = []
-			grad_vars = []  # To store gradients of passed variables
-			print('*upstream right before asseritons are',*upstream)
-			print('variables right before asseritons are',variables)
+			grad_vars = [] 
 			for k in range(self.K):
-				dy_dw =  self.algo1(k) #change variables[k]　to self.w[k]
-				dy_dws.append(dy_dw)
-				#fallaten dy_dws to store into grad_vars
-			intermediate_grad_vars = [item for i in dy_dws for item in i]
-			grad_vars = tf.expand_dims(intermediate_grad_vars,axis=0)
+				dy_dw =  self.algo1(k) 
+				dy_dws.append(dy_dw)			
+			intermediate_grad_vars = [tf.constant(item, dtype='float32') for i in dy_dws for item in i]
+			grad_vars = intermediate_grad_vars 
 			return grad_xs, grad_vars
-		return self.vCS, grad_GINN_op
-	
+		return vCS_j, grad_GINN_op
 	def algo1(self, k): #Implementing Algorithm 1 of Ito et al.(2020), pp.434
-		print('YOU ARE IN ALGO 1')
-		print('is eager in algo1',tf.executing_eagerly())
+		# print('is eager in algo1',tf.executing_eagerly())
 		# update self.W[k] by reading document j whose polarity is b_j 
 		# j : document number
 		# k : cluster number
@@ -119,29 +112,22 @@ class GINN_inputLayer(layers.Layer):
 		# z^k_j := (z^k_{j,1}, ... z^k_{j,n(k)) (1 x n(k))
 		sum_of_prod_of_delta_k_2_star_and_z_k = 0 #sum of product of delta_k_2_star_and z_k ,i.e., frequency, of doc j. See line 17 of Algorithm1
 		for j in range(self.batch_size): #self.batch_size == the cardinality of Omega_m
-			# data = InputData() #stub 
-			d_j = self.transform_label_to_matrix(self.data.labels[j])
-			print(d_j)
+			d_j = self.transform_label_to_matrix(self.label[j]) #RECONSIDER this... 
 			# assert type(d_j) == numpy.ndarray 
 			y_j = self.y[j] # minibatch dimension already being considered here.
 			y_j_np = y_j.numpy()
-			y_j_T = np.squeeze(y_j_np,axis=0) #Change matrix to vector to be consistent with Algo1 notation.
-			print('y_j_T is',y_j_T)
+			y_j_T = y_j_np #stub. walking safe side.
+			# y_j_T = np.squeeze(y_j_np,axis=0) #Change matrix to vector to be consistent with Algo1 notation.
 			delta_j_4 = np.subtract(y_j_T,d_j)
-			# print('delta_j_4 is ',delta_j_4)
 			self.w3 = self.model.model.layers[1].get_weights()[0]
 			# print(tf.executing_eagerly())
 			self.w4 = self.model.model.layers[2].get_weights()[0]
-			# print('w3 is ', self.w3.shape, 'vCS.numpy() is ', self.vCS.numpy().shape)
 			vCS_j = self.vCS[j].numpy()
 			u3_j = np.matmul(self.w3.T, vCS_j)
-			# print('u3_j', u3_j)
 			derivative_f3 = self.tanh_derivative(u3_j)
 			diagonailized_var = np.diag(derivative_f3) 
-			# print('diagonailized_var.shape is ',diagonailized_var.shape)
 			matmuled_var = np.matmul(diagonailized_var, self.w3.T)
 			H_j_t = np.matmul(self.w4.T, matmuled_var)
-			
 			try: 
 				H_star_j_t
 			except UnboundLocalError:
@@ -154,43 +140,12 @@ class GINN_inputLayer(layers.Layer):
 					H_star_j_t[1][local_k] = H_j_t[1][local_k]
 				
 			RHS_of_delta_j_2 = np.matmul(H_star_j_t.T, delta_j_4)
-			
 			u2_j= self.u2[j].numpy()
-			# u2_j = np.expand_dims(u2_j_np,axis=1)
 			LHS_of_delta_j_2 = 1- (np.tanh(u2_j))**2
 			delta_2_j = np.multiply(LHS_of_delta_j_2,RHS_of_delta_j_2) # line 15 of Algorithm 1 in Ito et al.(2020), pp.434 
-			sum_of_prod_of_delta_k_2_star_and_z_k += delta_2_j[k] * self.Z[j][k] #z_j = self.z[j]
-			print('sum_of_var is ',sum_of_prod_of_delta_k_2_star_and_z_k)
-
-		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k / self.batch_size # Denominator is stub. Intention is to take average by Total N.
-		
-		"""
-		# necesary values: inputlayer:u2_j, v_j,  y_j^CS, label, W3, 
-		grad_wk2 = np.array([0.005]) # stub
-		"""
-		# necesary values: inputlayer:u2_j, v_j,  y_j^CS, label, W3, 
-		# for j in range(self.Omega_m):
-			# d_j =  (0,1)^T if label_j = true; otherwise: (1,0)^T 
-			# u_j2 = u2_j # = tanh^{-1}(v_j^CS)
-			# u_j2_grad = 1 - (u_j2 ^2)
-			# u_j3 = W3 * v_j^CS # stub
-			# delata_j4 = y_j - d_j  # y_j := softmax(W4 * tanh(W3 * v_j^S) + b0) # stub
-			# H_jt = W4 * diag(u_j2_grad(u_j3)) * W3 # \in R^{2 x K)
-			# ...
-		# """
+			sum_of_prod_of_delta_k_2_star_and_z_k += np.multiply(delta_2_j[k], self.Z[j][k]) #z_j = self.z[j]
+		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k / self.batch_size 
 		return grad_wk2
-
-	# def get_weights_from_model_wrapper(self,modelwrapper):
-	# 	rcvd_weights = modelwrapper.model.layers[1].get_weights()[0]
-		# rcvd_layers = modelwrapper.model.layers[1].get_weights()[0]# this will get error:
-		# Cannot get value inside Tensorflow graph function.
- 
-		return rcvd_weights
-		# return self.weights 
-	#def create_H_star_j_t(self,H_j_t,H_star_j_t):
-	#	print('funciton THURU')
-	#	func1 = tf.add(4,5) 
-	#	return func1() 
 
 	def tanh_derivative(self, x):
 		y = 1-(np.tanh(x))**2
@@ -199,11 +154,8 @@ class GINN_inputLayer(layers.Layer):
 	def transform_label_to_matrix(self, datalabel):
 		if datalabel[0]== 1:
 			d_j = np.array([0,1]).T #document is positive. 
-			# d_j = d_j.set_shape([2,1]) 
-			# print('d_j is positive')
 		elif datalabel[0] == 0:
 			d_j = np.array([1,0]).T #document is negative.
-			# print('d_j is negative')
 		else:
 			print('Error:label data given but the label is neither 1 nor 0.') 
 		return d_j 
@@ -215,142 +167,275 @@ class GINN_inputLayer(layers.Layer):
 		self.data = self.model.model.data
 	
 	def set_y(self, y):
-		# print('y is', y)
 		# print('tf.executing_eagerly in the function T or F',tf.executing_eagerly())
 		self.y = y
-		# print('Post config y is',y)
 	
 
-class GINN_model(keras.Model):
-	def __init__(self, data):
+class GINN_model(tf.keras.Model):
+	def __init__(self, fold, data):
 		super(GINN_model, self).__init__()
 		self.data = data
-	
+		self.data_d0 = self.data.num_of_elements_in_a_batch
+		# self.data_d1 = self.data.row_dimension
+		self.data_d1 = self.data.feature_dimension
+		self.classwise_prediction_list = []
+		self.fold = fold
 	def build(self, input_shape):
-		print('is eager in GINN_model build',tf.executing_eagerly())
-		self.inputlayer = GINN_inputLayer(self.data.W,units = self.data.inputs,il_batch_input_shape= (10,1,915))#stub
+		# print('is eager in GINN_model build',tf.executing_eagerly())
+		self.inputlayer = GINN_inputLayer(self.fold.W,units = len(self.fold.W),il_batch_input_shape= (self.data_d0,self.data_d1),label=self.fold.labels_train)#len(self.data.W) should be as same as forthcoming self.K.
 		self.K = self.inputlayer.K
-		self.K2 = self.K*2 # stub AR COMMENT: two edges from Concept layer to Context. See Fig 1 of Ito et al.(2020)
-		self.secondlayer = layers.Dense(self.K2, activation="tanh",kernel_initializer='random_normal',use_bias = False)
-		# print('initalized secondlyaer is', self.secondlayer.weights)
-		self.outputlayer = layers.Dense(2, activation='softmax') #stub 10 is cardinality of minibatch.
+		print('self.K is ',self.K)
+		self.K2 =  5 # Edges from Concept layer to next layer. See Fig 1 of Ito et al.(2020)
+		self.secondlayer = tf.keras.layers.Dense(self.K2, activation="tanh",kernel_initializer='random_normal',use_bias = False,)
+		self.outputlayer = tf.keras.layers.Dense(2, activation='softmax') 
 		self.inputlayer.extract_vars(self)
-		print('input_shape is ',input_shape)
-		super(GINN_model, self).build(input_shape)
+		# super(GINN_model, self).build(input_shape) #Not certain if insntantiating the parenct class,i.e., keras.Model, is desirable
 	
-	
-	def call(self, inputs): # inputs = v^{BOW}_j
-		# print('model.input.shape=', inputs.shape)
-		# print('model.input[1]=', inputs[1])
-		# print('model.input[1][0]=', inputs[1][0])
-		# print('type of model.input=', type(inputs))
-		print('inputs',inputs)
-		print('is eager in GINN_model call',tf.executing_eagerly())
-		vCS = self.inputlayer(inputs) # very stub
-		# vCS = tf.expand_dims(vCS,axis=0)
-		print('pre-concatenation vCS is ',vCS)
-		# vCS = tf.concat(vCS,axis= 0 )
-		# print('post-concatenation vCS is ' ,vCS)
-		vCS = tf.expand_dims(vCS,axis=1)
-		print('post-expand_dims vCS is ' ,vCS)
+	def call(self, inputs,label = False,test_data= False): # inputs = v^{BOW}_j
+		# print('is eager in GINN_model call',tf.executing_eagerly())
+		vCS = self.inputlayer(inputs) 
+		# localvCS = tuple(tuple(vCS))
+		#adjust the size for next layer input.
+		# local_vCS = tf.expand_dims(vCS,axis=1)
+		# stub_matrix = np.arange(54882).reshape((18,3049))
 		V3 = self.secondlayer(vCS)
-		self.inputlayer.w3 = self.secondlayer.weights
-		print('V3 is ',V3)
 		y = self.outputlayer(V3)
-		print('y is ',y)
-		self.y = y
-		print('self.y in GINN_model call() is',self.y)
-		print('self.y.shape in GINN_model call() is',self.y.shape)
-		# print('tf.executing_eagerly T or F',tf.executing_eagerly())
-		# tf.config.run_functions_eagerly(True)
+		self.y = y 
 		self.inputlayer.set_y(self.y)
-		y_prob_pred = tf.math.reduce_max(y, axis=2,keepdims= True)
-		print('y_prob_pred is ',y_prob_pred)
-
-		# stub_pred_of_y = tf.squeeze(tf.slice(self.y,[0,0,0],[1,10,1]),axis=0) #very stub as pred is chosen from manual slicing. Pred shoud be selected from argamaxed-index!!	
-		# print('stub_pred_of_y is ',stub_pred_of_y )
+		self.classwise_prediction_list.append(y)
+		# try:
+		# 	self.prediction_for_test.append(y)
+		# except:
+		# 	pass
+		# self.inner_list.append(y)
+		y_prob_pred = tf.math.reduce_max(y, axis=1,keepdims= True)
 		return y_prob_pred 
 
-
-
 class InputData(object):
-	def __init__(self):
-		self.read_pickles()
-		self.preprocess_input()
+	def __init__(self,fold=None, num_of_batch = None,isDropRemainder = True):
+		#fold_obj is an instance of Fold class, not mandatory.
+		self.num_of_batch = num_of_batch
+		self.isRemainderTrue = isDropRemainder  
+		# self.read_pickles()
+		self.test_input = self.preprocess_input(data_segment= 'test',fold=fold) # run test first in this line 
+		# self.validation_input = self.preprocess_input(data_segment= 'validation',fold=fold) # run test first in this line 
+		self.train_input = self.preprocess_input(data_segment= 'training',fold=fold) # run after self.test_input has been created
+		# return [self.test_input,self.validation_input,self.train_input]	
 	
-	def read_pickles(self):
-		#importing wegiht 
-		with open('data/W.pkl', 'rb') as fin:
-			self.W = pickle.load(fin)
-		#importing training_data(i.e. vbow) 
-		with open('data/training_data.pkl', 'rb') as fin:
-			self.training_data = pickle.load(fin)
-		#print('len(training_data)=', len(self.training_data)) # =56
-		t0 = self.training_data[0]
-		#importing label (positive = 1, negative = 0) 
-		with open('data/labels.pkl', 'rb') as fin:
-			self.labels = pickle.load(fin)
-		#print('len(labels)=',len(self.labels)) # =56
-		#print('labels=',self.labels)
-		
-		print('===End Reading Pickles==')
+	# def read_pickles(self):
+	# 	#import wegiht CONSIDER importing form test, validation and training folder and listize each instance for future iteration for k-fold  
+	# 	with open('data/data20220611_01/W.pkl', 'rb') as fin:
+	# 		self.W = pickle.load(fin)
+	# 	#import training_data(i.e. vbow) 
+	# 	with open('data/data20220611_01/train_1_input_data.pkl', 'rb') as fin:
+	# 		self.training_data = pickle.load(fin)
+	# 	#import test_data
+	# 	with open('data/data20220611_01/test_1_input_data.pkl', 'rb') as fin:
+	# 		self.test_data = pickle.load(fin)
+	# 	#import validation_data
+	# 	with open('data/data20220611_01/validation_1_input_data.pkl', 'rb') as fin:
+	# 		self.validation_data = pickle.load(fin)
+	# 	#import label for train data (positive = 1, negative = 0) 
+	# 	with open('data/data20220611_01/train_1_labels.pkl', 'rb') as fin:
+	# 		self.labels_train = pickle.load(fin)
+	# 	#import label for test data (positive = 1, negative = 0) 
+	# 	with open('data/data20220611_01/test_1_labels.pkl', 'rb') as fin:
+	# 		self.labels_test = pickle.load(fin)
+	# 	#import label for validation data (positive = 1, negative = 0) 
+	# 	with open('data/data20220611_01/validation_1_labels.pkl', 'rb') as fin:
+	# 		self.labels_validation = pickle.load(fin)
+
+
+	# 	print('===End Reading Pickles==')
 	
-	def preprocess_input(self):
+	def preprocess_input(self,data_segment = 'training',fold = None):
 		"""
 		change numpy ndarray training_data AND labels to tf.data.Dataset data.
 		"""
+		if data_segment == 'training':
+			# data = self.training_data
+			# labels = self.labels_train
+			data = fold.training_data
+			labels = fold.labels_train
+		elif data_segment =='test':
+			# data = self.test_data
+			# labels = self.labels_test
+			# print('len of test_data',len(self.test_data))
+			data = fold.test_data
+			labels = fold.labels_test
+
+		elif data_segment =='validation':
+			# data = self.validation_data
+			# labels = self.labels_validation
+			data = fold.validation_data
+			labels = fold.labels_validation
+		
+		print(data_segment)
+
 		#1.Preprocess training data
-		preprocessed_training_data = [x for x in self.training_data ]
+		preprocessed_training_data = [x for x in data ]
 		data_intermediatelist = []
+
+		if data_segment == 'training':
+			self.training_data_size =len(preprocessed_training_data) 
+		elif data_segment =='test':
+			self.test_data_size =len(preprocessed_training_data) 
+
+		print('len of data is ', len(preprocessed_training_data))
 		for cnt in range(len(preprocessed_training_data)):
 			di = preprocessed_training_data[cnt][:].tolist()
-			#data_intermediatelist.append(di)
 			data_intermediatelist.append(sum(di,[])) # flatten
-		#print('data_intermediatelist[0]=', data_intermediatelist[0])
-		data_frequencies = tf.expand_dims(tf.constant(data_intermediatelist,dtype = 'float32'),axis= 1) #expand dim at axis 1 to enable future propergation among layers.
-
+		self.data_frequencies_All_data = data_intermediatelist #Store data for invocation in input lyaer.
+		data_frequencies = tf.constant(data_intermediatelist,dtype = 'float32')
 		self.x = data_frequencies
-		print('self.x is ',self.x)
 		# self.x = tf.expand_dims(self.x,axis =2) #Adding dummy dimension for future preprocessing spefically fro Binary cross entropy and its argument 'reduction=tf.keras.losses.Reduction.NONE'.
-		print('self.x is ',self.x)
-		
-		#self.frequencies = tf.ragged.constant(self.preprocessed_input_data, dtype='float32')	
 
 		#2.Preprocess label
-		self.formatted_labels=tf.expand_dims(tf.constant(self.labels[:].tolist(),dtype= 'float32'),axis=1)
-		print(self.x)
-		print(self.formatted_labels)
-		#print('self.formatted_labels=', self.formatted_labels)
-		self.inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(10
-		,drop_remainder= True)
-		print('top.input=', self.inputs)
+		self.formatted_labels=tf.expand_dims(tf.constant(labels[:].tolist(),dtype= 'float32'),axis=1)
+		print('len of self.formatted_labels is ', len(self.formatted_labels))
+		#3.Enter xs and ys to tf.data.Dataset
+		self.row_dimension = len(self.x)
+		self.feature_dimension = len(self.x[0])
+		if self.isRemainderTrue == False:
+			self.lastrow_num_of_data = len(self.x)  #-1 means index offset
+		elif self.isRemainderTrue == True:
+			self.lastrow_num_of_data = (len(self.x) // self.num_of_batch) * self.num_of_batch  #-1 means index offset
+		#TODO take num of cluster and dimentions of data and add them as attributes of this call to use them 		
+		self.num_of_elements_in_a_batch = len(self.x)//self.num_of_batch
+
+		#drop_remainder should be true as the value of inputs.shape[0] should be valid.
+		if data_segment == 'training':
+			inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(self.num_of_elements_in_a_batch,drop_remainder= self.isRemainderTrue)
+		elif data_segment == 'validation' or 'test':
+			inputs = tf.data.Dataset.from_tensor_slices((self.x, self.formatted_labels)).batch(len(self.x),drop_remainder=self.isRemainderTrue)
+	
+		return inputs
+		
+class Fold(object):
+	def __init__(self,filelist):
+		#filelist is a list of file name path, note filelist contents order crucial here.
+		self.W = self.read_pickles(filelist[0])
+		self.test_data = self.read_pickles(filelist[1])
+		self.labels_test = self.read_pickles(filelist[2])
+		self.training_data = self.read_pickles(filelist[3])
+		self.labels_train = self.read_pickles(filelist[4])
+		self.validation_data = self.read_pickles(filelist[5])
+		self.labels_validation = self.read_pickles(filelist[6])
+		
+	
+	def read_pickles(self,filepath):
+		with open(filepath,'rb') as fin:
+			loaded_data = pickle.load(fin)
+		return loaded_data
+	
+	def get_dataset(self,):
+		self.data = InputData(fold = self,num_of_batch=NUM_OF_BATCH,isDropRemainder=True)
+		#below are tf.data.dataset, where model input and label are concatenated into one variable such as data.test_input
+		self.test_dataset= self.data.test_input
+		# self.validation_dataset= self.data.validation_input
+		self.train_dataset= self.data.train_input
+	
+	def set_model(self):
+		self.model = GINN_model(self,self.data)
+
+class Main_Process(object):
+	def __init__(self,data_folder):
+		#data_folder should be a directory path without number of bundle where data is sotred in k-foldwise. e.g., 'data/bundle' ; in this case k-foldwise data is stored in data/bundle0, data/bunlde1, ..., data/production/bundlek. Data should be preprocessed by Datapreprocess_summerV1.py. k = 5 is only considered for GINN.
+		self.all_k_dataset = self.retrieve_dataset_files(data_folder) 
+
+	def retrieve_dataset_files(self,data_folder):
+		whole_datafile_path = []
+		files_path_list = []
+		for i in range(NUM_OF_FOLD):#NUM OF FOLD
+			fileslist = os.listdir(data_folder+str(i))
+			fileslist.sort() #as a result order will be ['W_0.pkl', 'test_0_input_data.pkl', 'test_0_labels.pkl', 'train_0_input_data.pkl', 'train_0_labels.pkl', 'validation_0_input_data.pkl', 'validation_0_labels.pkl']
+			[files_path_list.append((data_folder+str(i)+'/'+fileslist[cnt])) for cnt in range(len(fileslist)) ]
+			whole_datafile_path.append(files_path_list)
+			files_path_list = []
+			# aFold = Fold(fileslist)			
+		return whole_datafile_path
+		
+	def preprocess_data(self):
+		self.folds = []
+		for filelist in self.all_k_dataset[0:1]:
+			aFold = Fold(filelist)
+			aFold.get_dataset()
+			self.folds.append(aFold)
+		# for n in 
+		print(self.folds)
+		#preprocess input data using InputData class
+	
+	def train_and_valdiate(self):
+		all_loss_histories = []
+		num_epochs = NUM_OF_EPOCHS 
+#[0:2]: #delete slicing in production 2022/6/30
+		for fold in self.folds[0:1]:
+			fold.set_model()
+			fold.model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True)
+			# history = fold.model.fit(fold.train_dataset,epochs = num_epochs,validation_data = fold.validation_dataset)#activate this when using validation dataset
+			history = fold.model.fit(fold.train_dataset,epochs = num_epochs)
+			loss_history = history.history['loss']
+			# print('evaluating...')
+			# output = fold.model.evaluate(fold.validation_dataset)
+			print('loss_history is', history)
+			all_loss_histories.append(loss_history)
+			# validation_scores.append(output)
+		# print('validation score is ',np.average(validation_scores))
+		self.average_loss_histories = [np.mean([x[i] for x in all_loss_histories]) for i in range(num_epochs)]
+		# print(self.average_loss_histories)
+	
+	def run_test(self):
+		self.prediction = self.folds[0].model.predict(self.folds[0].test_dataset)
+		classwise_prediction_result = self.folds[0].model.y#get probability for test data
+		open_file = open('./buff/' + date_str + 'TrainData'+str(self.folds[0].data.training_data_size) +'TestData'+str(self.folds[0].data.test_data_size)+'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS)+'classwise_prediction.pkl','wb')
+		pickle.dump(classwise_prediction_result,open_file)
+		open_file = open('./buff/'+ date_str +'TrainData'+str(self.folds[0].data.training_data_size) +'TestData'+str(self.folds[0].data.test_data_size)+'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS) + 'data_label_test.pkl','wb')
+		pickle.dump(self.folds[0].labels_test,open_file)
+	
+	# def draw_graph(self):
+	# 	plt.plot(range(1,len(self.average_loss_histories)+1), self.average_loss_histories)
+	# 	plt.xlabel('Epochs')
+	# 	plt.ylabel('Loss')
+	# 	plt.show
+	# 	plt.savefig('./buff/losses' +'TrainData'+str(self.folds[0].data.training_data_size) +'TestData'+str(self.folds[0].data.test_data_size)+ date_str+'NB'+ str(NUM_OF_BATCH)+'NE'+str(NUM_OF_EPOCHS)+'.jpg')
+	# 	print('done!')
 
 #ToDo write decorator to save output to .txt file
-def output_to_txt_file(f):
-	def log():
-		# os.system('script test.txt')
-		print('start now')
-		f()
-
-	return log 
-	
+# def output_to_txt_file(f):
+# 	def log():
+# 		# os.system('script test.txt')
+# 		print('start now')
+# 		f()
+# 	return log 
 
 # @output_to_txt_file
-def main():
-	data = InputData()
-	g_model = GINN_model(data)
-	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
-	# print('data.inputs is ',data.inputs)
-	# print('type of data.inputs is ',type(data.inputs))
-	print(g_model.run_eagerly)
-	g_model.fit(data.inputs, epochs=3 )
-	g_model.summary()
-	# g_model.model.layers[1].get_weights()[0]
-	# print('g_model.secondlayer',g_model.secondlayer.get_weights()[0])
-	# test_weights = g_model.secondlayer.weights
-	# print(test_weights) 
-	# run test 
-	#result= g_model.predict(sample_x)
-	#print(result)
+# def main():
+# 	data = InputData(num_of_batch = NUM_OF_BATCH, isDropRemainder = True ) 
+# 	g_model = GINN_model(data)
+# 	g_model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True, metrics =['accuracy']) # you need 'run_eagerly = True' arg to run the whole process in eager mode.
+# 	print(g_model.run_eagerly)
+# 	print('--training--')
+# 	g_model.fit(data.train_input, epochs = 3)#callback epoch g_model.summary()
+# 	print('--evaluating--')
+# 	output=g_model.evaluate(data.validation_input)
+# 	print('output is ',output)
+# 	prediction = g_model.predict(data.test_input)
+# 	print(g_model.y)
+# 	print('predction is ',prediction)
+# 	classwise_prediction_result = g_model.y#get probability for test data
+# # 	print('classwise_predcition result is ',classwise_prediction_result)	
+# 	open_file = open('./buff/' + 'classwise_prediction.pkl','wb')
+# 	pickle.dump(classwise_prediction_result,open_file)
+# 	open_file = open('./buff/' + 'data_label_test.pkl','wb')
+# 	pickle.dump(data.labels_test,open_file)
+# 	print('inputlayer weights are ',g_model.inputlayer.weights)
+# 	g_model.summary()
 
-main()
+
+main = Main_Process(DATA_FOLDER+BUNDLE_FOLDER)
+main.preprocess_data()
+main.train_and_valdiate()
+main.run_test()
+# main.draw_graph()
+# main()
+
