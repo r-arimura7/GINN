@@ -369,7 +369,7 @@ class Main_Process(object):
 	
 	def set_callbacks(self):
 		# Create a TensorBoard callback
-		logs = "logs/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+		logs = "logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 		self.tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
                                                  		histogram_freq = 1,
                                                  		profile_batch = '1,2')
@@ -380,9 +380,9 @@ class Main_Process(object):
 #[0:2]: #delete slicing in production 2022/6/30
 		for fold in self.folds[0:1]:
 			fold.set_model()
-			fold.model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True,callbacks=[self.tboard_callback])
+			fold.model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True)
 			# history = fold.model.fit(fold.train_dataset,epochs = num_epochs,validation_data = fold.validation_dataset)#activate this when using validation dataset
-			history = fold.model.fit(fold.train_dataset,epochs = num_epochs)
+			history = fold.model.fit(fold.train_dataset,epochs = num_epochs,callbacks=[self.tboard_callback])
 			loss_history = history.history['loss']
 			# print('evaluating...')
 			# output = fold.model.evaluate(fold.validation_dataset)
