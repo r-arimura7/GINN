@@ -373,7 +373,6 @@ class Main_Process(object):
 		self.tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
                                                  		histogram_freq = 1,
                                                  		profile_batch = '1,2')
-
 	
 	def train_and_valdiate(self):
 		all_loss_histories = []
@@ -444,6 +443,7 @@ class Main_Process(object):
 
 main = Main_Process(DATA_FOLDER+BUNDLE_FOLDER)
 main.preprocess_data()
+main.set_callbacks()
 main.train_and_valdiate()
 main.run_test()
 # main.draw_graph()
