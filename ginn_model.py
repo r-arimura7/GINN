@@ -182,7 +182,7 @@ class GINN_model(tf.keras.Model):
 		self.fold = fold
 	def build(self, input_shape):
 		# print('is eager in GINN_model build',tf.executing_eagerly())
-		self.inputlayer = GINN_inputLayer(self.fold.W,units = len(self.fold.W),il_batch_input_shape= (self.data_d0,self.data_d1),label=self.fold.labels_train)#len(self.data.W) should be as same as forthcoming self.K.
+		self.inputlayer = #pad data to suit generic input lyaer model: GINN_inputLayer(self.fold.W,units = len(self.fold.W),il_batch_input_shape= (self.data_d0,self.data_d1),label=self.fold.labels_train)#len(self.data.W) should be as same as forthcoming self.K.
 		self.K = self.inputlayer.K
 		print('self.K is ',self.K)
 		self.K2 =  5 # Edges from Concept layer to next layer. See Fig 1 of Ito et al.(2020)
