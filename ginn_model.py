@@ -372,7 +372,7 @@ class Main_Process(object):
 		logs = "logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 		self.tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
                                                  		histogram_freq = 1,
-                                                 		profile_batch = '1,2')
+                                                 		profile_batch = '1,5')
 	
 	def train_and_valdiate(self):
 		all_loss_histories = []
