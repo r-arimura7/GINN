@@ -31,6 +31,7 @@ class Model_wrapper(object):
 		self.model = model
 
 class GINN_inputLayer(tf.keras.layers.Layer):
+	# @profile
 	def __init__(self, Weights, units = None, il_batch_input_shape = None,label =False):
 		super(GINN_inputLayer, self).__init__(dynamic= True, batch_input_shape = il_batch_input_shape) #instantiate super class. 
 		# print('is eager in __init__',tf.executing_eagerly())
@@ -50,6 +51,7 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 			self.n[k] = n_k
 			self.m += n_k
 
+	# @profile
 	def build(self, input_shape):
 		self.processed_W = [k[0].flatten() for k in self.Weights]
 		self.flattened_W = np.concatenate(self.processed_W)
@@ -59,6 +61,7 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 
 		super(GINN_inputLayer, self).build(input_shape)
 
+	# @profile
 	def call(self, inputs):
 		self.Z = []
 		self.u2 = [] 
@@ -75,7 +78,9 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 		self.vCS = local_vCS
 		return self.vCS 
 
+	# @profile
 	@tf.custom_gradient
+	# @profile
 	def GINN_op(self,*x):
 		xs = x 
 		ws = []
@@ -85,13 +90,14 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 			k1 = k0 + self.n[k]
 			z_k = xs[k0:k1]
 			z_j.append(z_k)
-			weight_vector = tf.expand_dims(self.flattened_W_tfv[k0:k1],axis=0)
+			weight_vector = tf.expand_dims(self.flattened_W_tfv[k0:k1],axis=0) #replace with vecvec 
 			ws.append(tf.linalg.matvec(weight_vector, z_k))
 			k0 = k1
 		self.Z.append(z_j)
 		u2_j = tf.concat(ws,axis=0) 
 		self.u2.append(u2_j)
-		vCS_j = tf.keras.activations.tanh(u2_j)		
+		vCS_j = tf.keras.activations.tanh(u2_j)
+		# @profile		
 		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
 			grad_xs = [tf.constant(1,dtype='float32') for _ in range(len(variables))]
 			dy_dws = []
@@ -103,6 +109,8 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 			grad_vars = intermediate_grad_vars 
 			return grad_xs, grad_vars
 		return vCS_j, grad_GINN_op
+
+	# @profile	
 	def algo1(self, k): #Implementing Algorithm 1 of Ito et al.(2020), pp.434
 		# print('is eager in algo1',tf.executing_eagerly())
 		# update self.W[k] by reading document j whose polarity is b_j 
@@ -148,11 +156,13 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 			sum_of_prod_of_delta_k_2_star_and_z_k += np.multiply(delta_2_j[k], self.Z[j][k]) #z_j = self.z[j]
 		grad_wk2 = sum_of_prod_of_delta_k_2_star_and_z_k / self.batch_size 
 		return grad_wk2
-
+	
+	# @profile
 	def tanh_derivative(self, x):
 		y = 1-(np.tanh(x))**2
 		return y	
-
+	
+	# @profile
 	def transform_label_to_matrix(self, datalabel):
 		if datalabel[0]== 1:
 			d_j = np.array([0,1]).T #document is positive. 
@@ -161,13 +171,13 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 		else:
 			print('Error:label data given but the label is neither 1 nor 0.') 
 		return d_j 
-	
+	# @profile
 	def extract_vars(self, model):
 		# extract variables that will be used in algo1() from other layers
 		#self.model = model # this led an infinite recursion.:w
 		self.model = Model_wrapper(model)
 		self.data = self.model.model.data
-	
+	# @profile
 	def set_y(self, y):
 		# print('tf.executing_eagerly in the function T or F',tf.executing_eagerly())
 		self.y = y
@@ -249,7 +259,7 @@ class InputData(object):
 
 
 	# 	print('===End Reading Pickles==')
-	
+	# @profile
 	def preprocess_input(self,data_segment = 'training',fold = None):
 		"""
 		change numpy ndarray training_data AND labels to tf.data.Dataset data.
@@ -324,19 +334,19 @@ class Fold(object):
 		self.validation_data = self.read_pickles(filelist[5])
 		self.labels_validation = self.read_pickles(filelist[6])
 		
-	
+	# @profile
 	def read_pickles(self,filepath):
 		with open(filepath,'rb') as fin:
 			loaded_data = pickle.load(fin)
 		return loaded_data
-	
+	# @profile
 	def get_dataset(self,):
 		self.data = InputData(fold = self,num_of_batch=NUM_OF_BATCH,isDropRemainder=True)
 		#below are tf.data.dataset, where model input and label are concatenated into one variable such as data.test_input
 		self.test_dataset= self.data.test_input
 		# self.validation_dataset= self.data.validation_input
 		self.train_dataset= self.data.train_input
-	
+	# @profile
 	def set_model(self):
 		self.model = GINN_model(self,self.data)
 
@@ -344,7 +354,7 @@ class Main_Process(object):
 	def __init__(self,data_folder):
 		#data_folder should be a directory path without number of bundle where data is sotred in k-foldwise. e.g., 'data/bundle' ; in this case k-foldwise data is stored in data/bundle0, data/bunlde1, ..., data/production/bundlek. Data should be preprocessed by Datapreprocess_summerV1.py. k = 5 is only considered for GINN.
 		self.all_k_dataset = self.retrieve_dataset_files(data_folder) 
-
+	# @profile
 	def retrieve_dataset_files(self,data_folder):
 		whole_datafile_path = []
 		files_path_list = []
@@ -356,7 +366,7 @@ class Main_Process(object):
 			files_path_list = []
 			# aFold = Fold(fileslist)			
 		return whole_datafile_path
-		
+	# @profile	
 	def preprocess_data(self):
 		self.folds = []
 		for filelist in self.all_k_dataset[0:1]:
@@ -372,8 +382,9 @@ class Main_Process(object):
 		logs = "logs/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 		self.tboard_callback = tf.keras.callbacks.TensorBoard(log_dir = logs,
                                                  		histogram_freq = 1,
-                                                 		profile_batch = '1,5')
-	
+                                                 		profile_batch = '1,5',
+														write_steps_per_second=True)
+	# @profile
 	def train_and_valdiate(self):
 		all_loss_histories = []
 		num_epochs = NUM_OF_EPOCHS 
@@ -382,7 +393,7 @@ class Main_Process(object):
 			fold.set_model()
 			fold.model.compile(optimizer='adam',loss = tf.keras.losses.BinaryCrossentropy(),run_eagerly = True)
 			# history = fold.model.fit(fold.train_dataset,epochs = num_epochs,validation_data = fold.validation_dataset)#activate this when using validation dataset
-			history = fold.model.fit(fold.train_dataset,epochs = num_epochs,callbacks=[self.tboard_callback])
+			history = fold.model.fit(fold.train_dataset,epochs = num_epochs)#,callbacks=[self.tboard_callback])
 			loss_history = history.history['loss']
 			# print('evaluating...')
 			# output = fold.model.evaluate(fold.validation_dataset)
@@ -392,7 +403,7 @@ class Main_Process(object):
 		# print('validation score is ',np.average(validation_scores))
 		self.average_loss_histories = [np.mean([x[i] for x in all_loss_histories]) for i in range(num_epochs)]
 		# print(self.average_loss_histories)
-	
+	# @profile
 	def run_test(self):
 		self.prediction = self.folds[0].model.predict(self.folds[0].test_dataset)
 		classwise_prediction_result = self.folds[0].model.y#get probability for test data
@@ -443,9 +454,16 @@ class Main_Process(object):
 
 main = Main_Process(DATA_FOLDER+BUNDLE_FOLDER)
 main.preprocess_data()
-main.set_callbacks()
+# main.set_callbacks()
+# options = tf.profiler.experimental.ProfilerOptions(host_tracer_level = 2,
+#                                                    python_tracer_level = 1,
+#                                                    device_tracer_level = 1)
+# tf.profiler.experimental.start('/Users/arimuu/Library/CloudStorage/OneDrive-Personal/TMU/Th修士論文/ScraperProgram/GINN/logs', options = options)
 main.train_and_valdiate()
+# tf.profiler.experimental.stop()
 main.run_test()
 # main.draw_graph()
 # main()
 
+
+# Training code here
