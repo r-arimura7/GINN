@@ -56,6 +56,7 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 		self.processed_W = [k[0].flatten() for k in self.Weights]
 		self.flattened_W = np.concatenate(self.processed_W)
 		self.flattened_W_tfv = [tf.Variable(i,trainable=True,dtype='float32') for i in self.flattened_W] 
+		self.vecs_of_weights = [tf.Variable(self.processed_W[cnt]) for cnt in range(len(self.n)) ]
 		self.j_first = 0
 		self.j_last = self.batch_size
 
