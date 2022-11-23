@@ -54,9 +54,9 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 	# @profile
 	def build(self, input_shape):
 		self.processed_W = [k[0].flatten() for k in self.Weights]
-		self.flattened_W = np.concatenate(self.processed_W)
-		self.flattened_W_tfv = [tf.Variable(i,trainable=True,dtype='float32') for i in self.flattened_W] 
-		self.vecs_of_weights = [tf.Variable(self.processed_W[cnt]) for cnt in range(len(self.n)) ]
+		# self.flattened_W = np.concatenate(self.processed_W)
+		# self.flattened_W_tfv = [tf.Variable(i,trainable=True,dtype='float32') for i in self.flattened_W] 
+		self.vecs_of_weights = [tf.compat.v1.Variable(self.processed_W[cnt],use_resource = True) for cnt in range(len(self.n))]
 		self.j_first = 0
 		self.j_last = self.batch_size
 
@@ -70,6 +70,7 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 			All_data =self.data.data_frequencies_All_data 
 			intermediate_xs = All_data[j] 
 			xs = [float(x) for x in intermediate_xs]
+			self.len_of_xs = len(xs)
 			params = xs
 			vCS = self.GINN_op(*params)
 			if j == 0:
@@ -89,25 +90,29 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 		k0 = 0
 		for k in range(self.K):
 			k1 = k0 + self.n[k]
-			z_k = xs[k0:k1]
-			z_j.append(z_k)
-			weight_vector = tf.expand_dims(self.flattened_W_tfv[k0:k1],axis=0) #replace with vecvec 
-			ws.append(tf.linalg.matvec(weight_vector, z_k))
+			z_k = tf.constant(xs[k0:k1])
+			z_j.append(z_k.numpy())
+			# weight_vector = tf.expand_dims(self.flattened_W_tfv[k0:k1],axis=0) #replace with vecvec 
+			ws.append(tf.tensordot(self.vecs_of_weights[k], z_k,axes = 1)) #dot product of weight vector and frequency vector. 
 			k0 = k1
 		self.Z.append(z_j)
 		u2_j = tf.concat(ws,axis=0) 
 		self.u2.append(u2_j)
 		vCS_j = tf.keras.activations.tanh(u2_j)
 		# @profile		
-		def grad_GINN_op(*upstream, variables = [self.flattened_W_tfv]):# 
-			grad_xs = [tf.constant(1,dtype='float32') for _ in range(len(variables))]
+		def grad_GINN_op(*upstream, variables = self.vecs_of_weights):# 
+			grad_xs = [tf.constant(1,dtype='float32') for _ in range(self.len_of_xs)]
+			[print(self.vecs_of_weights[i].shape) for i in range(len(self.vecs_of_weights))]
+			[print('variables[i] is',variables[i].shape) for i in range(len(variables))]
+			# print('dummy is ',dummy)
 			dy_dws = []
 			grad_vars = [] 
 			for k in range(self.K):
 				dy_dw =  self.algo1(k) 
-				dy_dws.append(dy_dw)			
-			intermediate_grad_vars = [tf.constant(item, dtype='float32') for i in dy_dws for item in i]
-			grad_vars = intermediate_grad_vars 
+				dy_dws.append(tf.constant(dy_dw,dtype='float32'))			
+
+			# intermediate_grad_vars = [tf.constant(item, dtype='float32') for i in dy_dws for item in i]
+			grad_vars = dy_dws 
 			return grad_xs, grad_vars
 		return vCS_j, grad_GINN_op
 
