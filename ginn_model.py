@@ -56,7 +56,7 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 		self.processed_W = [k[0].flatten() for k in self.Weights]
 		# self.flattened_W = np.concatenate(self.processed_W)
 		# self.flattened_W_tfv = [tf.Variable(i,trainable=True,dtype='float32') for i in self.flattened_W] 
-		self.vecs_of_weights = [tf.compat.v1.Variable(self.processed_W[cnt],use_resource = True) for cnt in range(len(self.n))]
+		self.vecs_of_weights = [tf.Variable(self.processed_W[cnt]) for cnt in range(len(self.n))]
 		self.j_first = 0
 		self.j_last = self.batch_size
 
@@ -102,8 +102,8 @@ class GINN_inputLayer(tf.keras.layers.Layer):
 		# @profile		
 		def grad_GINN_op(*upstream, variables = self.vecs_of_weights):# 
 			grad_xs = [tf.constant(1,dtype='float32') for _ in range(self.len_of_xs)]
-			[print(self.vecs_of_weights[i].shape) for i in range(len(self.vecs_of_weights))]
-			[print('variables[i] is',variables[i].shape) for i in range(len(variables))]
+			# [print(self.vecs_of_weights[i].shape) for i in range(len(self.vecs_of_weights))] #20221123 TODO  
+			# [print('variables[i] is',variables[i].shape) for i in range(len(variables))] #20221123 ORDER OF variables incopatible with self.vecs_of_weights!
 			# print('dummy is ',dummy)
 			dy_dws = []
 			grad_vars = [] 
